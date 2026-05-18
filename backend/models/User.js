@@ -36,7 +36,7 @@ const userSchema = new mongoose.Schema(
     ],
 
     // ===============================
-    // 🛒 CART (OPTIONAL - SERVER SIDE)
+    // 🛒 CART
     // ===============================
     cart: [
       {
@@ -55,7 +55,7 @@ const userSchema = new mongoose.Schema(
     },
 
     // ===============================
-    // 🚫 ACCOUNT CONTROL (ADMIN)
+    // 🚫 ACCOUNT CONTROL
     // ===============================
     isBlocked: {
       type: Boolean,
@@ -63,11 +63,18 @@ const userSchema = new mongoose.Schema(
     },
 
     // ===============================
-    // 📱 OPTIONAL (FUTURE USE)
+    // 📱 PROFILE INFO (NEW)
     // ===============================
     phone: {
       type: String,
       default: "",
+      trim: true,
+    },
+
+    address: {
+      type: String,
+      default: "",
+      trim: true,
     },
 
     avatar: {
