@@ -13,6 +13,7 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.4.1",
+    "puppeteer": "^25.0.4",
     "sslcommerz-lts": "^1.2.0"
   },
   "devDependencies": {

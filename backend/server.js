@@ -52,7 +52,8 @@ app.use("/api/admin", require("./routes/admin"));
 app.use("/api/blogs", require("./routes/blogRoutes"));
 app.use("/api/ads", require("./routes/adRoutes"));
 app.use("/api/messages", messageRoutes);
-
+// invoice route
+app.use("/api/invoice", require("./routes/invoiceRoutes"));
 
 // ================= TEST ROUTE =================
 app.get("/", (req, res) => {
