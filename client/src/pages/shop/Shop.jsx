@@ -11,7 +11,8 @@ import {
 } from "react-icons/fa";
 
 // ✅ BASE URL for image
-const BASE_URL = "https://book-management-system-ks6w.onrender.com";
+// const BASE_URL = "https://book-management-system-ks6w.onrender.com";
+const BASE_URL = "http://localhost:3000";
 
 // ================= CATEGORY STRUCTURE =================
 const categories = {

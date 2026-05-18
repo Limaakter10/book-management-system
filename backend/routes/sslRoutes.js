@@ -163,7 +163,7 @@ router.all("/success", async (req, res) => {
     }
 
     // 🔥 FRONTEND REDIRECT
-    res.redirect(`${FRONTEND_URL}/payment-success`);
+   res.redirect(`${FRONTEND_URL}/payment-success?tran_id=${tran_id}`);
 
   } catch (err) {
     console.error("SUCCESS ERROR:", err);

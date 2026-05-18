@@ -6,13 +6,12 @@ import {
   FaUser,
   FaSignOutAlt,
   FaBook,
-  FaCog
+  FaCog,
+  FaTachometerAlt,
 } from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import toast from "react-hot-toast";
-
-// ✅ import centralized axios
 import api from "../api/axios";
 
 const Navbar = () => {
@@ -54,7 +53,6 @@ const Navbar = () => {
           toast.success("Payment Approved! Check your library");
           await api.post(`/api/orders/notify/${newOrder._id}`);
         }
-
       } catch (err) {
         console.error("Notification error:", err.message);
       }
@@ -63,7 +61,6 @@ const Navbar = () => {
     checkNotification();
     const interval = setInterval(checkNotification, 10000);
     return () => clearInterval(interval);
-
   }, []);
 
   return (
@@ -73,15 +70,12 @@ const Navbar = () => {
       <div className="bg-[#e6f2f6] text-sm px-6 py-2 flex justify-between items-center">
 
         <div className="hidden md:flex gap-4 text-[#0e5a6f]">
-
           <span className="flex items-center gap-1">
             <FaPhoneAlt /> +880 1734-567890
           </span>
-
           <span className="flex items-center gap-1">
             <FaEnvelope /> support@readnova.com
           </span>
-
         </div>
 
         <div className="flex items-center gap-4 text-[#0e5a6f]">
@@ -90,7 +84,7 @@ const Navbar = () => {
           <NavLink to="/blog">Blog</NavLink>
           <NavLink to="/help">Help</NavLink>
           <NavLink to="/refund-policy">Refund Policy</NavLink>
-       
+
           {/* ADMIN */}
           {user?.role === "admin" && (
             <NavLink to="/admin/orders" className="flex items-center gap-1">
@@ -119,18 +113,36 @@ const Navbar = () => {
             </>
           ) : (
             <>
-              <span className="flex items-center gap-1 font-semibold">
-                <FaUser />
-                {user.name || user.email?.split("@")[0]}
-              </span>
+              {/* DASHBOARD LINK — avatar + name */}
+              <NavLink
+                to="/dashboard"
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-200 font-semibold
+                  ${isActive
+                    ? "bg-[#0e5a6f] text-white"
+                    : "bg-[#e6f2f6] text-[#0e5a6f] hover:bg-[#cce4ec]"
+                  }`
+                }
+              >
+                {/* avatar circle */}
+                <div className="w-6 h-6 rounded-full bg-[#0e5a6f] text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
+                  {(user.name || user.email || "U")[0].toUpperCase()}
+                </div>
+                <span className="hidden sm:inline">
+                  {user.name || user.email?.split("@")[0]}
+                </span>
+                <FaTachometerAlt className="text-xs opacity-70" />
+              </NavLink>
 
+              {/* MY LIBRARY */}
               <NavLink to="/library" className="flex items-center gap-1">
                 <FaBook /> My Library
               </NavLink>
 
+              {/* LOGOUT */}
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-1"
+                className="flex items-center gap-1 hover:text-red-500 transition-colors duration-200"
               >
                 <FaSignOutAlt /> Logout
               </button>
@@ -140,7 +152,6 @@ const Navbar = () => {
           {/* CART */}
           <NavLink to="/cart" className="relative">
             <FaShoppingCart />
-
             <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-1.5 rounded-full">
               {cart?.length || 0}
             </span>

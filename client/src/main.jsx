@@ -21,6 +21,9 @@ import Checkout from "./pages/Checkout";
 import Recommendation from "./pages/Recommendation";
 import Reader from "./pages/Reader";
 import UserMessages from "./pages/UserMessages";
+
+// user deshboard
+import UserDashboard from "./pages/UserDashboard";
 // refund
 
 import RefundPolicy from "./pages/RefundPolicy";
@@ -129,6 +132,16 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <MyLibrary />
+          </ProtectedRoute>
+        ),
+      },
+
+       // 👤 USER DASHBOARD
+      {
+        path: "/dashboard",
+        element: (
+          <ProtectedRoute>
+            <UserDashboard />
           </ProtectedRoute>
         ),
       },
