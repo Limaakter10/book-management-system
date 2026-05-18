@@ -1,22 +1,17 @@
 // ============================================================
 // 📄 invoiceRoutes.js
-// GET /api/invoice/:tranId → actual PDF file generate করে download দেয়
-// puppeteer দিয়ে HTML → PDF convert করা হচ্ছে
+// GET /api/invoice/:tranId → actual PDF file
+// pdfkit use করা হচ্ছে — Chrome দরকার নেই, Render এ কাজ করবে
 // ============================================================
 
-const express    = require("express");
-const router     = express.Router();
-const puppeteer  = require("puppeteer");
-const Order      = require("../models/Order");
+const express = require("express");
+const router  = express.Router();
+const PDFDocument = require("pdfkit");
+const Order   = require("../models/Order");
 
-// ============================================================
-// GET /api/invoice/:tranId
-// ============================================================
 router.get("/:tranId", async (req, res) => {
-  let browser = null;
-
   try {
-    // ── Order fetch with user email
+    // ── Order fetch
     const order = await Order.findOne({ tranId: req.params.tranId })
       .populate("userId", "email name");
 
@@ -24,395 +19,192 @@ router.get("/:tranId", async (req, res) => {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    // ── Book rows HTML
-    const bookRows = order.books.map((b, i) => `
-      <tr>
-        <td class="center">${i + 1}</td>
-        <td>${b.title || "Book"}</td>
-        <td class="right">৳ ${Number(b.price || 0).toFixed(2)}</td>
-      </tr>
-    `).join("");
-
-    // ── Status color
-    const statusColor =
-      order.status === "paid"    ? "#16a34a" :
-      order.status === "pending" ? "#ca8a04" : "#dc2626";
-
-    // ── Invoice date
-    const invoiceDate = new Date(order.createdAt).toLocaleString("en-BD", {
-      timeZone: "Asia/Dhaka",
-      day:    "2-digit",
-      month:  "long",
-      year:   "numeric",
-      hour:   "2-digit",
-      minute: "2-digit",
-    });
-
-    // ── Full HTML for PDF
-    const html = `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8"/>
-        <style>
-          * { margin:0; padding:0; box-sizing:border-box; }
-
-          body {
-            font-family: 'Arial', sans-serif;
-            color: #1a1a1a;
-            background: #fff;
-            padding: 0;
-          }
-
-          /* ── TOP COLOR BAR ── */
-          .top-bar {
-            background: linear-gradient(135deg, #16a34a, #15803d);
-            height: 8px;
-          }
-
-          .page { padding: 48px 56px; }
-
-          /* ── HEADER ── */
-          .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 40px;
-          }
-          .brand-name {
-            font-size: 32px;
-            font-weight: 900;
-            color: #16a34a;
-            letter-spacing: -1px;
-          }
-          .brand-name span { color: #1a1a1a; }
-          .brand-tagline {
-            font-size: 12px;
-            color: #888;
-            margin-top: 2px;
-          }
-          .invoice-label {
-            text-align: right;
-          }
-          .invoice-label h2 {
-            font-size: 28px;
-            font-weight: 800;
-            color: #1a1a1a;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-          }
-          .invoice-label p {
-            font-size: 12px;
-            color: #888;
-            margin-top: 4px;
-          }
-
-          /* ── STATUS BADGE ── */
-          .status-badge {
-            display: inline-block;
-            padding: 4px 14px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            background: ${order.status === "paid" ? "#dcfce7" : order.status === "pending" ? "#fef9c3" : "#fee2e2"};
-            color: ${statusColor};
-            margin-top: 8px;
-          }
-
-          /* ── DIVIDER ── */
-          .divider {
-            border: none;
-            border-top: 2px solid #f0f0f0;
-            margin: 24px 0;
-          }
-          .divider-green {
-            border: none;
-            border-top: 3px solid #16a34a;
-            margin: 0 0 32px 0;
-          }
-
-          /* ── INFO SECTION ── */
-          .info-section {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 36px;
-            gap: 32px;
-          }
-          .info-box {
-            flex: 1;
-            background: #f9fafb;
-            border-radius: 10px;
-            padding: 20px 24px;
-            border-left: 4px solid #16a34a;
-          }
-          .info-box h4 {
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #888;
-            margin-bottom: 12px;
-          }
-          .info-row {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 6px;
-            font-size: 13px;
-          }
-          .info-key {
-            font-weight: 600;
-            color: #555;
-            min-width: 110px;
-            flex-shrink: 0;
-          }
-          .info-val { color: #1a1a1a; }
-
-          /* ── TABLE ── */
-          .table-title {
-            font-size: 13px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: #888;
-            margin-bottom: 12px;
-          }
-          table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 24px;
-          }
-          thead tr {
-            background: #16a34a;
-            color: #fff;
-          }
-          th {
-            padding: 12px 14px;
-            font-size: 12px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            text-align: left;
-          }
-          td {
-            padding: 12px 14px;
-            font-size: 13px;
-            border-bottom: 1px solid #f0f0f0;
-          }
-          tbody tr:last-child td { border-bottom: none; }
-          tbody tr:nth-child(even) { background: #f9fafb; }
-          .center { text-align: center; }
-          .right   { text-align: right; }
-
-          /* ── TOTAL SECTION ── */
-          .total-section {
-            display: flex;
-            justify-content: flex-end;
-            margin-top: 8px;
-          }
-          .total-box {
-            min-width: 260px;
-            border-top: 2px solid #e5e7eb;
-            padding-top: 12px;
-          }
-          .total-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 13px;
-            color: #555;
-            margin-bottom: 6px;
-          }
-          .total-row.grand {
-            font-size: 18px;
-            font-weight: 800;
-            color: #16a34a;
-            border-top: 2px solid #16a34a;
-            padding-top: 10px;
-            margin-top: 6px;
-          }
-
-          /* ── FOOTER ── */
-          .footer {
-            margin-top: 48px;
-            padding-top: 20px;
-            border-top: 1px solid #e5e7eb;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-          }
-          .footer-left {
-            font-size: 12px;
-            color: #888;
-            line-height: 1.8;
-          }
-          .footer-right {
-            font-size: 12px;
-            color: #16a34a;
-            font-weight: 700;
-            text-align: right;
-          }
-          .thank-you {
-            font-size: 15px;
-            font-weight: 700;
-            color: #16a34a;
-            margin-bottom: 4px;
-          }
-        </style>
-      </head>
-      <body>
-
-        <!-- Top green bar -->
-        <div class="top-bar"></div>
-
-        <div class="page">
-
-          <!-- Header -->
-          <div class="header">
-            <div>
-              <div class="brand-name">Read<span>Nova</span></div>
-              <div class="brand-tagline">Digital Library — Ignite Your Knowledge</div>
-            </div>
-            <div class="invoice-label">
-              <h2>Invoice</h2>
-              <p>#${order.tranId}</p>
-              <div class="status-badge">${order.status}</div>
-            </div>
-          </div>
-
-          <hr class="divider-green"/>
-
-          <!-- Info Section -->
-          <div class="info-section">
-
-            <!-- Bill To -->
-            <div class="info-box">
-              <h4>Bill To</h4>
-              <div class="info-row">
-                <span class="info-key">Name:</span>
-                <span class="info-val">${order.userId?.name || "Customer"}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-key">Email:</span>
-                <span class="info-val">${order.userId?.email || "—"}</span>
-              </div>
-            </div>
-
-            <!-- Invoice Details -->
-            <div class="info-box">
-              <h4>Invoice Details</h4>
-              <div class="info-row">
-                <span class="info-key">Invoice No:</span>
-                <span class="info-val">${order.tranId}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-key">Date:</span>
-                <span class="info-val">${invoiceDate}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-key">Method:</span>
-                <span class="info-val" style="text-transform:capitalize">${order.method}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-key">Status:</span>
-                <span class="info-val" style="color:${statusColor};font-weight:700;text-transform:capitalize">
-                  ${order.status}
-                </span>
-              </div>
-            </div>
-
-          </div>
-
-          <!-- Books Table -->
-          <p class="table-title">Items Purchased</p>
-          <table>
-            <thead>
-              <tr>
-                <th style="width:40px;text-align:center">#</th>
-                <th>Book Title</th>
-                <th style="text-align:right;width:120px">Price</th>
-              </tr>
-            </thead>
-            <tbody>${bookRows}</tbody>
-          </table>
-
-          <!-- Totals -->
-          <div class="total-section">
-            <div class="total-box">
-              ${order.discountAmount > 0 ? `
-                <div class="total-row">
-                  <span>Subtotal</span>
-                  <span>৳ ${(order.amount + order.discountAmount).toFixed(2)}</span>
-                </div>
-                <div class="total-row">
-                  <span>Discount</span>
-                  <span style="color:#dc2626">− ৳ ${order.discountAmount.toFixed(2)}</span>
-                </div>
-              ` : ""}
-              ${order.tax > 0 ? `
-                <div class="total-row">
-                  <span>Tax</span>
-                  <span>+ ৳ ${order.tax.toFixed(2)}</span>
-                </div>
-              ` : ""}
-              <div class="total-row grand">
-                <span>Total Paid</span>
-                <span>৳ ${Number(order.amount).toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Footer -->
-          <div class="footer">
-            <div class="footer-left">
-              ReadNova — Digital Library<br/>
-              support@readnova.com &nbsp;|&nbsp; +880 1734-567890<br/>
-              book-management-system-one-nu.vercel.app
-            </div>
-            <div class="footer-right">
-              <div class="thank-you">Thank you! 📚</div>
-              This is a computer-generated invoice.<br/>
-              No signature required.
-            </div>
-          </div>
-
-        </div>
-      </body>
-      </html>
-    `;
-
-    // ── Puppeteer দিয়ে HTML → PDF convert
-    browser = await puppeteer.launch({
-      headless: "new",
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: "networkidle0" });
-
-    const pdfBuffer = await page.pdf({
-      format:            "A4",
-      printBackground:   true,   // colors/backgrounds include করো
-      margin: {
-        top:    "0px",
-        right:  "0px",
-        bottom: "0px",
-        left:   "0px",
-      },
-    });
-
-    await browser.close();
-
-    // ── PDF response — browser এ download dialog আসবে
+    // ── PDF response headers
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
       `attachment; filename="ReadNova-Invoice-${order.tranId}.pdf"`
     );
-    res.send(pdfBuffer);
+
+    // ── Create PDF document
+    const doc = new PDFDocument({ margin: 50, size: "A4" });
+    doc.pipe(res); // pipe directly to response
+
+    // ── Colors
+    const green  = "#16a34a";
+    const dark   = "#1a1a1a";
+    const gray   = "#6b7280";
+    const light  = "#f9fafb";
+
+    // ============================================================
+    // TOP GREEN BAR
+    // ============================================================
+    doc.rect(0, 0, doc.page.width, 8).fill(green);
+
+    // ============================================================
+    // HEADER
+    // ============================================================
+    doc.moveDown(1);
+
+    // Brand name
+    doc.fontSize(28).font("Helvetica-Bold").fillColor(green).text("Read", 50, 40, { continued: true });
+    doc.fillColor(dark).text("Nova");
+
+    doc.fontSize(11).font("Helvetica").fillColor(gray)
+      .text("Digital Library — Ignite Your Knowledge", 50, 75);
+
+    // INVOICE label (right side)
+    doc.fontSize(28).font("Helvetica-Bold").fillColor(dark)
+      .text("INVOICE", 350, 40, { align: "right", width: 195 });
+
+    doc.fontSize(11).font("Helvetica").fillColor(gray)
+      .text(`#${order.tranId}`, 350, 75, { align: "right", width: 195 });
+
+    // Status badge
+    const statusColor =
+      order.status === "paid"    ? green :
+      order.status === "pending" ? "#ca8a04" : "#dc2626";
+
+    doc.fontSize(10).font("Helvetica-Bold").fillColor(statusColor)
+      .text(order.status.toUpperCase(), 350, 95, { align: "right", width: 195 });
+
+    // ── Divider line
+    doc.moveTo(50, 120).lineTo(545, 120).lineWidth(2).strokeColor(green).stroke();
+
+    // ============================================================
+    // INFO BOXES — Bill To + Invoice Details
+    // ============================================================
+    const boxY = 135;
+
+    // Left box — Bill To
+    doc.rect(50, boxY, 230, 100).fill(light);
+    doc.rect(50, boxY, 4, 100).fill(green); // left accent
+
+    doc.fontSize(9).font("Helvetica-Bold").fillColor(gray)
+      .text("BILL TO", 62, boxY + 12);
+
+    doc.fontSize(11).font("Helvetica-Bold").fillColor(dark)
+      .text(order.userId?.name || "Customer", 62, boxY + 28);
+
+    doc.fontSize(10).font("Helvetica").fillColor(gray)
+      .text(order.userId?.email || "—", 62, boxY + 46);
+
+    // Right box — Invoice Details
+    doc.rect(315, boxY, 230, 100).fill(light);
+    doc.rect(315, boxY, 4, 100).fill(green); // left accent
+
+    doc.fontSize(9).font("Helvetica-Bold").fillColor(gray)
+      .text("INVOICE DETAILS", 327, boxY + 12);
+
+    const invoiceDate = new Date(order.createdAt).toLocaleDateString("en-BD", {
+      timeZone: "Asia/Dhaka",
+      day: "2-digit", month: "long", year: "numeric"
+    });
+
+    const details = [
+      ["Invoice No:", order.tranId.substring(0, 13) + "..."],
+      ["Date:",       invoiceDate],
+      ["Method:",     order.method.charAt(0).toUpperCase() + order.method.slice(1)],
+      ["Status:",     order.status.charAt(0).toUpperCase() + order.status.slice(1)],
+    ];
+
+    details.forEach(([key, val], i) => {
+      const y = boxY + 28 + i * 16;
+      doc.fontSize(9).font("Helvetica-Bold").fillColor(gray).text(key, 327, y);
+      doc.fontSize(9).font("Helvetica").fillColor(dark).text(val, 410, y);
+    });
+
+    // ============================================================
+    // ITEMS TABLE
+    // ============================================================
+    const tableY = boxY + 120;
+
+    // Table title
+    doc.fontSize(9).font("Helvetica-Bold").fillColor(gray)
+      .text("ITEMS PURCHASED", 50, tableY);
+
+    // Table header
+    const headerY = tableY + 15;
+    doc.rect(50, headerY, 495, 28).fill(green);
+
+    doc.fontSize(10).font("Helvetica-Bold").fillColor("#ffffff")
+      .text("#",           60,  headerY + 9)
+      .text("BOOK TITLE",  90,  headerY + 9)
+      .text("PRICE",       490, headerY + 9, { align: "right", width: 50 });
+
+    // Table rows
+    let rowY = headerY + 28;
+    order.books.forEach((book, i) => {
+      // Alternating row background
+      if (i % 2 === 0) {
+        doc.rect(50, rowY, 495, 26).fill("#f9fafb");
+      }
+
+      doc.fontSize(10).font("Helvetica").fillColor(dark)
+        .text(`${i + 1}`, 60, rowY + 8)
+        .text(book.title || "Book", 90, rowY + 8, { width: 350 })
+        .text(`৳ ${Number(book.price || 0).toFixed(2)}`, 490, rowY + 8, { align: "right", width: 50 });
+
+      // Row border
+      doc.moveTo(50, rowY + 26).lineTo(545, rowY + 26)
+        .lineWidth(0.5).strokeColor("#e5e7eb").stroke();
+
+      rowY += 26;
+    });
+
+    // ============================================================
+    // TOTALS
+    // ============================================================
+    const totalY = rowY + 16;
+
+    // Discount
+    if (order.discountAmount > 0) {
+      doc.fontSize(10).font("Helvetica").fillColor(gray)
+        .text("Discount:", 350, totalY)
+        .fillColor("#dc2626")
+        .text(`− ৳ ${order.discountAmount.toFixed(2)}`, 490, totalY, { align: "right", width: 50 });
+    }
+
+    // Tax
+    if (order.tax > 0) {
+      doc.fontSize(10).font("Helvetica").fillColor(gray)
+        .text("Tax:", 350, totalY + 18)
+        .fillColor(dark)
+        .text(`+ ৳ ${order.tax.toFixed(2)}`, 490, totalY + 18, { align: "right", width: 50 });
+    }
+
+    // Grand total box
+    const grandY = totalY + (order.tax > 0 ? 36 : order.discountAmount > 0 ? 18 : 0);
+    doc.rect(350, grandY, 195, 32).fill(green);
+
+    doc.fontSize(12).font("Helvetica-Bold").fillColor("#ffffff")
+      .text("TOTAL PAID", 360, grandY + 10)
+      .text(`৳ ${Number(order.amount).toFixed(2)}`, 490, grandY + 10, { align: "right", width: 50 });
+
+    // ============================================================
+    // FOOTER
+    // ============================================================
+    const footerY = doc.page.height - 80;
+
+    doc.moveTo(50, footerY).lineTo(545, footerY)
+      .lineWidth(1).strokeColor("#e5e7eb").stroke();
+
+    doc.fontSize(9).font("Helvetica").fillColor(gray)
+      .text("ReadNova — Digital Library", 50, footerY + 12)
+      .text("support@readnova.com  |  +880 1734-567890", 50, footerY + 26)
+      .text("book-management-system-one-nu.vercel.app", 50, footerY + 40);
+
+    doc.fontSize(9).font("Helvetica-Bold").fillColor(green)
+      .text("Thank you for your purchase! 📚", 350, footerY + 12, { align: "right", width: 195 });
+
+    doc.fontSize(8).font("Helvetica").fillColor(gray)
+      .text("This is a computer-generated invoice.", 350, footerY + 28, { align: "right", width: 195 })
+      .text("No signature required.", 350, footerY + 40, { align: "right", width: 195 });
+
+    // ── Finalize PDF
+    doc.end();
 
   } catch (err) {
-    if (browser) await browser.close();
     console.error("Invoice PDF error:", err);
     res.status(500).json({ message: "PDF generation failed", error: err.message });
   }
