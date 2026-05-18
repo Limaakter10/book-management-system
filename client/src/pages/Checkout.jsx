@@ -3,52 +3,42 @@ import api from "../api/axios";
 import { HiOutlineCreditCard } from "react-icons/hi";
 
 const Checkout = () => {
-  // ================= STATE =================
   const [loading, setLoading] = useState(false);
 
-  // ================= HANDLE PAYMENT =================
   const handlePayment = async () => {
     try {
       setLoading(true);
 
-      // 🔥 STEP 1: Get logged-in user
+      // ── Step 1: logged-in user
       const userId = localStorage.getItem("userId");
+      if (!userId) { alert("⚠️ Please login first"); return; }
 
-      if (!userId) {
-        alert("⚠️ Please login first");
-        return;
-      }
-
-      // 🔥 STEP 2: Get cart data from localStorage
+      // ── Step 2: cart data
       const cart = JSON.parse(localStorage.getItem("cart")) || [];
+      if (cart.length === 0) { alert("⚠️ Your cart is empty"); return; }
 
-      if (cart.length === 0) {
-        alert("⚠️ Your cart is empty");
-        return;
-      }
-
-      // 🔥 STEP 3: Convert cart → backend format
+      // ── Step 3: books array — FIX: title + price যোগ করা হয়েছে
+      // আগে শুধু bookId ছিল → invoice এ "Book" আর ৳0 দেখাত
+      // এখন title + price সহ পাঠানো হচ্ছে → invoice এ সঠিক data দেখাবে
       const books = cart.map((book) => ({
-        bookId: book._id, // backend expects this
+        bookId: book._id,               // DB reference
+        title:  book.title  || "Book",  // ← invoice এ book name
+        price:  Number(book.price || 0) // ← invoice এ price
       }));
 
-      // 🔥 STEP 4: Calculate total price
+      // ── Step 4: total amount
       const amount = cart.reduce(
-        (total, book) => total + Number(book.price || 0),
-        0
+        (total, book) => total + Number(book.price || 0), 0
       );
 
-      console.log("📦 Sending books:", books);
-      console.log("💰 Total amount:", amount);
-
-      // 🔥 STEP 5: Call backend payment init API
+      // ── Step 5: SSL init call
       const res = await api.post("/api/ssl/init", {
         amount,
         userId,
-        books,
+        books, // ← title + price সহ
       });
 
-      // 🔥 STEP 6: Redirect to SSLCommerz
+      // ── Step 6: SSLCommerz এ redirect
       if (res?.data?.url) {
         window.location.href = res.data.url;
       } else {
@@ -63,7 +53,6 @@ const Checkout = () => {
     }
   };
 
-  // ================= UI =================
   return (
     <button
       onClick={handlePayment}
