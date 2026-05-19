@@ -1,13 +1,16 @@
-import Order from "../models/Order.js";
-
-export const createOrder = async (req, res) => {
+export const getAllOrders = async (req, res) => {
   try {
-    const order = new Order(req.body);
-    await order.save();
+    const orders = await Order.find();
 
-    res.json({ message: "Order placed", order });
+    res.json({
+      success: true,
+      orders
+    });
 
   } catch (err) {
-    res.status(500).json(err);
+    console.log(err);
+    res.status(500).json({
+      message: "Failed to fetch order"
+    });
   }
 };

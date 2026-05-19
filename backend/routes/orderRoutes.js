@@ -1,7 +1,3 @@
-// ============================================================
-// 📄 orderRoutes.js — Full routes with invoice support
-// ============================================================
-
 const express = require("express");
 const router  = express.Router();
 const Order   = require("../models/Order");
@@ -9,7 +5,6 @@ const User    = require("../models/User");
 
 // ============================================================
 // ➕ CREATE ORDER
-// POST /api/orders
 // ============================================================
 router.post("/", async (req, res) => {
   try {
@@ -23,8 +18,34 @@ router.post("/", async (req, res) => {
 });
 
 // ============================================================
-// 📦 GET MY ORDERS — User নিজের orders দেখবে
-// GET /api/orders/my/:userId
+// 📋 GET ALL ORDERS — (🔥 FIXED POSITION)
+// ============================================================
+router.get("/all", async (req, res) => {
+  try {
+    const orders = await Order.find()
+      .populate("userId", "email name phone address")
+      .populate("books.bookId", "title price coverImage")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const enriched = orders.map(order => ({
+      ...order,
+      books: (order.books || []).map(b => ({
+        ...b,
+        title: b.title || b.bookId?.title || "Unknown",
+        price: b.price || b.bookId?.price || 0,
+      })),
+    }));
+
+    res.json(enriched);
+  } catch (err) {
+    console.error("GET ALL ORDERS ERROR:", err);
+    res.status(500).json({ message: "Failed to fetch orders" });
+  }
+});
+
+// ============================================================
+// 📦 GET MY ORDERS
 // ============================================================
 router.get("/my/:userId", async (req, res) => {
   try {
@@ -40,27 +61,7 @@ router.get("/my/:userId", async (req, res) => {
 });
 
 // ============================================================
-// 🧾 GET SINGLE ORDER — Invoice download এর জন্য
-// GET /api/orders/:orderId
-// ============================================================
-router.get("/:orderId", async (req, res) => {
-  try {
-    const order = await Order.findById(req.params.orderId)
-      .populate("userId", "name email phone address")
-      .populate("books.bookId", "title coverImage price");
-
-    if (!order) return res.status(404).json({ message: "Order not found" });
-
-    res.json(order);
-  } catch (err) {
-    console.error("GET ORDER ERROR:", err);
-    res.status(500).json({ message: "Failed to fetch order" });
-  }
-});
-
-// ============================================================
-// 🔍 GET ORDER BY TRAN ID — PaymentSuccess page এর জন্য
-// GET /api/orders/by-tran/:tranId
+// 🔍 GET ORDER BY TRAN ID
 // ============================================================
 router.get("/by-tran/:tranId", async (req, res) => {
   try {
@@ -78,48 +79,7 @@ router.get("/by-tran/:tranId", async (req, res) => {
 });
 
 // ============================================================
-// ✅ APPROVE ORDER — Admin approves, books → library
-// POST /api/orders/approve/:orderId
-// ============================================================
-router.post("/approve/:orderId", async (req, res) => {
-  try {
-    const order = await Order.findById(req.params.orderId);
-    if (!order) return res.status(404).json({ message: "Order not found" });
-
-    order.status   = "paid";
-    order.approved = true;
-    order.paidAt   = new Date();
-    await order.save();
-
-    // books গুলো library তে add করো
-    const bookIds = order.books.map(b => b.bookId);
-    await User.findByIdAndUpdate(order.userId, {
-      $addToSet: { library: { $each: bookIds } }
-    });
-
-    res.json({ success: true, message: "Order approved & books added to library" });
-  } catch (err) {
-    console.error("APPROVE ERROR:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// ============================================================
-// 🔔 MARK ORDER AS NOTIFIED
-// POST /api/orders/notify/:orderId
-// ============================================================
-router.post("/notify/:orderId", async (req, res) => {
-  try {
-    await Order.findByIdAndUpdate(req.params.orderId, { notified: true });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ message: "Error marking notified" });
-  }
-});
-
-// ============================================================
-// 👤 GET ORDERS BY USER ID (Navbar notification এর জন্য)
-// GET /api/orders/user/:userId
+// 👤 GET ORDERS BY USER
 // ============================================================
 router.get("/user/:userId", async (req, res) => {
   try {
@@ -135,20 +95,57 @@ router.get("/user/:userId", async (req, res) => {
 });
 
 // ============================================================
-// 📋 GET ALL ORDERS — Admin panel
-// GET /api/orders/all
+// 🧾 GET SINGLE ORDER (🔥 LAST e rakhsi)
 // ============================================================
-router.get("/all", async (req, res) => {
+router.get("/:orderId", async (req, res) => {
   try {
-    const orders = await Order.find()
-      .populate("userId", "email name phone")
-      .populate("books.bookId", "title price")
-      .sort({ createdAt: -1 });
+    const order = await Order.findById(req.params.orderId)
+      .populate("userId", "name email phone address")
+      .populate("books.bookId", "title coverImage price");
 
-    res.json(orders);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    res.json(order);
   } catch (err) {
-    console.error("GET ALL ORDERS ERROR:", err);
-    res.status(500).json({ message: "Failed to fetch orders" });
+    console.error("GET ORDER ERROR:", err);
+    res.status(500).json({ message: "Failed to fetch order" });
+  }
+});
+
+// ============================================================
+// ✅ APPROVE ORDER
+// ============================================================
+router.post("/approve/:orderId", async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.orderId);
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    order.status   = "paid";
+    order.approved = true;
+    order.paidAt   = new Date();
+    await order.save();
+
+    const bookIds = order.books.map(b => b.bookId);
+    await User.findByIdAndUpdate(order.userId, {
+      $addToSet: { library: { $each: bookIds } }
+    });
+
+    res.json({ success: true, message: "Order approved & books added to library" });
+  } catch (err) {
+    console.error("APPROVE ERROR:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// ============================================================
+// 🔔 NOTIFY
+// ============================================================
+router.post("/notify/:orderId", async (req, res) => {
+  try {
+    await Order.findByIdAndUpdate(req.params.orderId, { notified: true });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: "Error marking notified" });
   }
 });
 

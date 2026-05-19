@@ -161,106 +161,29 @@ const UserDashboard = () => {
     }
   };
 
-  // ─── invoice download via hidden iframe (popup blocker bypass) ──────────
-  const downloadInvoice = (order) => {
-    const invoiceHTML = `<!DOCTYPE html>
-<html><head><title>Invoice #${(order._id || "").slice(-8).toUpperCase()}</title>
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; padding: 40px; color: #1a1a1a; }
-  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0e5a6f; padding-bottom: 20px; margin-bottom: 24px; }
-  .brand { font-size: 22px; font-weight: 700; color: #0e5a6f; }
-  .brand p { font-size: 12px; color: #666; font-weight: 400; margin-top: 4px; }
-  .inv-num { text-align: right; }
-  .inv-num strong { font-size: 20px; color: #1a1a1a; display: block; margin-bottom: 4px; }
-  .inv-num span { font-size: 13px; color: #666; }
-  .two { display: flex; gap: 40px; margin-bottom: 24px; }
-  .box { flex: 1; }
-  .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin-bottom: 8px; font-weight: 600; }
-  .info-row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; border-bottom: 1px solid #f1f5f9; }
-  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-  th { background: #f1f5f9; text-align: left; padding: 10px 12px; font-size: 12px; color: #555; font-weight: 600; }
-  td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
-  .total-row td { font-weight: 700; font-size: 15px; border-top: 2px solid #0e5a6f; color: #0e5a6f; padding-top: 14px; }
-  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; background: #F0FDF4; color: #15803D; font-size: 11px; font-weight: 600; }
-  .footer { text-align: center; font-size: 12px; color: #888; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0; }
-  @media print { body { padding: 20px; } }
-</style></head><body>
+  // ─── invoice download — backend PDF (direct save, no print dialog) ────────
+  const [dlLoading, setDlLoading] = useState(false);
 
-<div class="header">
-  <div class="brand">📚 ReadNOVA<p>Digital Book Store — readnova.com</p></div>
-  <div class="inv-num">
-    <strong>INVOICE</strong>
-    <span>#${(order._id || "").slice(-8).toUpperCase()}</span><br/>
-    <span style="font-size:12px;color:#888">${dateStr(order.createdAt)}</span>
-  </div>
-</div>
-
-<div class="two">
-  <div class="box">
-    <div class="lbl">Billed To</div>
-    <div class="info-row"><span>Name</span><span><strong>${profile?.name || user?.name || "—"}</strong></span></div>
-    <div class="info-row"><span>Email</span><span>${profile?.email || user?.email || "—"}</span></div>
-    ${profile?.phone ? `<div class="info-row"><span>Phone</span><span>${profile.phone}</span></div>` : ""}
-    ${profile?.address ? `<div class="info-row"><span>Address</span><span>${profile.address}</span></div>` : ""}
-  </div>
-  <div class="box">
-    <div class="lbl">Payment Details</div>
-    <div class="info-row"><span>Method</span><span>${(order.method || "—").toUpperCase()}</span></div>
-    <div class="info-row"><span>Transaction ID</span><span>${order.tranId || "—"}</span></div>
-    <div class="info-row"><span>Status</span><span class="badge">${(order.status || "").toUpperCase()}</span></div>
-    <div class="info-row"><span>Date</span><span>${dateStr(order.paidAt || order.createdAt)}</span></div>
-  </div>
-</div>
-
-<table>
-  <thead>
-    <tr><th>#</th><th>Book Title</th><th style="text-align:right">Price</th></tr>
-  </thead>
-  <tbody>
-    ${(order.books || []).map((b, i) => `
-      <tr>
-        <td>${i + 1}</td>
-        <td>${b.title || b.bookId?.title || "Book"}</td>
-        <td style="text-align:right">${currency(b.price || 0)}</td>
-      </tr>
-    `).join("")}
-    <tr class="total-row">
-      <td colspan="2">Total Amount</td>
-      <td style="text-align:right">${currency(order.amount || 0)}</td>
-    </tr>
-  </tbody>
-</table>
-
-<div class="footer">
-  Thank you for your purchase! All books are available in your library.<br/>
-  ReadNOVA — support@readnova.com | readnova.com
-</div>
-
-</body></html>`;
-
-    // hidden iframe — popup blocker কে bypass করে
-    const iframe = document.createElement("iframe");
-    iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none;";
-    document.body.appendChild(iframe);
-
-    iframe.contentDocument.open();
-    iframe.contentDocument.write(invoiceHTML);
-    iframe.contentDocument.close();
-
-    setTimeout(() => {
-      try {
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-      } catch (e) {
-        console.error("Print error:", e);
-      }
-      setTimeout(() => {
-        if (document.body.contains(iframe)) {
-          document.body.removeChild(iframe);
-        }
-      }, 2000);
-    }, 400);
+  const downloadInvoice = async (order) => {
+    if (!order?.tranId) return;
+    setDlLoading(order._id);
+    try {
+      const res = await fetch(`${BASE_URL}/api/invoice/${order.tranId}`);
+      if (!res.ok) throw new Error("Failed");
+      const blob = await res.blob();
+      const url  = window.URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `ReadNova-Invoice-${order.tranId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert("Invoice download failed. Please try again.");
+    } finally {
+      setDlLoading(null);
+    }
   };
 
   const handleLogout = () => { localStorage.clear(); navigate("/login"); };

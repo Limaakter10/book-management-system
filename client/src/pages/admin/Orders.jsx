@@ -1,250 +1,280 @@
 // ============================================================
-// 📄 admin/Orders.jsx
-// Admin panel — সব orders দেখাবে।
-// প্রতিটা order এ: user email, date, books, amount, invoice button
+// 📄 admin/Orders.jsx — All orders with user email + invoice
 // ============================================================
 
 import { useEffect, useState } from "react";
 import api from "../../api/axios";
 import {
-  FaBoxOpen, FaUser, FaMoneyBillWave, FaCreditCard,
+  FaBoxOpen, FaMoneyBillWave, FaCreditCard,
   FaCheckCircle, FaClock, FaTimesCircle,
-  FaCalendarAlt, FaFileInvoice, FaEnvelope, FaBook
+  FaCalendarAlt, FaFilePdf, FaEnvelope, FaBook,
+  FaSearch, FaDownload,
 } from "react-icons/fa";
 
-const Orders = () => {
-  const [orders,  setOrders]  = useState([]);
-  const [loading, setLoading] = useState(true);
+const BACKEND_URL = "https://book-management-system-ks6w.onrender.com";
 
-  // ── Fetch all orders (user email populate করে)
+// ── helpers ───────────────────────────────────────────────────
+const STATUS_MAP = {
+  paid:      { label: "Paid",      bg: "#f0fdf4", color: "#16a34a", icon: <FaCheckCircle /> },
+  approved:  { label: "Approved",  bg: "#f0fdf4", color: "#16a34a", icon: <FaCheckCircle /> },
+  confirmed: { label: "Confirmed", bg: "#eff6ff", color: "#1d4ed8", icon: <FaCheckCircle /> },
+  pending:   { label: "Pending",   bg: "#fefce8", color: "#ca8a04", icon: <FaClock />       },
+  failed:    { label: "Failed",    bg: "#fef2f2", color: "#dc2626", icon: <FaTimesCircle /> },
+  cancelled: { label: "Cancelled", bg: "#fef2f2", color: "#dc2626", icon: <FaTimesCircle /> },
+};
+
+const dateStr = (d) =>
+  d ? new Date(d).toLocaleString("en-BD", {
+    timeZone: "Asia/Dhaka",
+    day: "2-digit", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  }) : "—";
+
+// ═════════════════════════════════════════════════════════════
+// MAIN
+// ═════════════════════════════════════════════════════════════
+const Orders = () => {
+  const [orders,   setOrders]   = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [search,   setSearch]   = useState("");
+  const [expanded, setExpanded] = useState(null);
+  const [dlLoading, setDlLoading] = useState(null); // tranId of downloading order
+
+  // ── fetch all orders ──────────────────────────────────────
   useEffect(() => {
     api.get("/api/orders/all")
       .then(res => { setOrders(res.data); setLoading(false); })
       .catch(err => { console.error(err); setLoading(false); });
   }, []);
 
-  // ── Status badge
-  const StatusBadge = ({ status }) => {
-    const map = {
-      paid:     { icon: <FaCheckCircle />, cls: "text-green-600 bg-green-50",   label: "Paid"     },
-      approved: { icon: <FaCheckCircle />, cls: "text-green-600 bg-green-50",   label: "Approved" },
-      pending:  { icon: <FaClock />,       cls: "text-yellow-600 bg-yellow-50", label: "Pending"  },
-      failed:   { icon: <FaTimesCircle />, cls: "text-red-500 bg-red-50",       label: "Failed"   },
-    };
-    const s = map[status] || map.pending;
+  // ── filter ────────────────────────────────────────────────
+  const filtered = orders.filter(o => {
+    const q = search.toLowerCase();
     return (
-      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${s.cls}`}>
-        {s.icon} {s.label}
-      </span>
+      o.userId?.email?.toLowerCase().includes(q) ||
+      o.userId?.name?.toLowerCase().includes(q)  ||
+      o.tranId?.toLowerCase().includes(q)         ||
+      o.status?.toLowerCase().includes(q)
     );
+  });
+
+  // ── invoice download (fetch blob → save) ──────────────────
+  const downloadInvoice = async (tranId, type = "user") => {
+    const key = tranId + (type === "admin" ? "a" : "u");
+    setDlLoading(key);
+    try {
+      const url = type === "admin"
+        ? `${BACKEND_URL}/api/invoice/admin/${tranId}`
+        : `${BACKEND_URL}/api/invoice/${tranId}`;
+
+      const res  = await fetch(url);
+      if (!res.ok) throw new Error("Failed");
+      const blob = await res.blob();
+      const burl = window.URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = burl;
+      a.download = type === "admin"
+        ? `ReadNova-AdminInvoice-${tranId}.pdf`
+        : `ReadNova-Invoice-${tranId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(burl);
+    } catch (err) {
+      alert("Invoice download failed. Please try again.");
+    } finally {
+      setDlLoading(null);
+    }
   };
 
-  // ============================================================
-  // INVOICE PRINT — admin থেকে যেকোনো order এর invoice print
-  // ============================================================
-  const printInvoice = (order) => {
-    const bookRows = order.books
-      .map((b, i) => `
-        <tr>
-          <td style="padding:10px 8px;border:1px solid #e5e7eb;">${i + 1}</td>
-          <td style="padding:10px 8px;border:1px solid #e5e7eb;">${b.title || "Book"}</td>
-          <td style="padding:10px 8px;border:1px solid #e5e7eb;text-align:right;">৳ ${b.price ?? 0}</td>
-        </tr>`)
-      .join("");
+  // ── stats ─────────────────────────────────────────────────
+  const totalRevenue = orders
+    .filter(o => ["paid","approved"].includes(o.status))
+    .reduce((s, o) => s + (o.amount || 0), 0);
+  const paidCount   = orders.filter(o => ["paid","approved"].includes(o.status)).length;
+  const pendingCount= orders.filter(o => o.status === "pending").length;
 
-    const win = window.open("", "_blank");
-    win.document.write(`
-      <!DOCTYPE html><html lang="en"><head>
-        <meta charset="UTF-8"/>
-        <title>Invoice — ${order.tranId}</title>
-        <style>
-          *{margin:0;padding:0;box-sizing:border-box}
-          body{font-family:Arial,sans-serif;padding:48px;color:#111;font-size:14px}
-          .header{display:flex;justify-content:space-between;align-items:flex-start;
-            margin-bottom:32px;padding-bottom:16px;border-bottom:2px solid #16a34a}
-          .brand{font-size:24px;font-weight:bold;color:#16a34a}
-          .brand span{color:#111}
-          .badge{background:#dcfce7;color:#16a34a;padding:4px 12px;
-            border-radius:20px;font-size:13px;font-weight:bold}
-          .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 32px;
-            margin-bottom:28px;background:#f9fafb;padding:16px;border-radius:8px}
-          .info-row{display:flex;gap:8px}
-          .info-label{font-weight:bold;min-width:130px;color:#374151}
-          table{width:100%;border-collapse:collapse;margin-bottom:16px}
-          thead tr{background:#f3f4f6}
-          th{padding:10px 8px;border:1px solid #e5e7eb;text-align:left;
-            font-size:13px;color:#374151}
-          .totals{text-align:right;margin-top:8px}
-          .grand-total{font-size:18px;font-weight:bold;color:#16a34a;margin-top:8px}
-          .footer{margin-top:48px;padding-top:16px;border-top:1px solid #e5e7eb;
-            text-align:center;font-size:12px;color:#9ca3af}
-          @media print{button{display:none!important}}
-        </style>
-      </head><body>
-
-        <div class="header">
-          <div>
-            <div class="brand">Read<span>Nova</span></div>
-            <div style="font-size:13px;color:#666;margin-top:4px">Admin Copy — Invoice</div>
-          </div>
-          <div class="badge">✅ ${order.status}</div>
-        </div>
-
-        <div class="info-grid">
-          <div class="info-row">
-            <span class="info-label">Invoice No:</span>
-            <span>${order.tranId}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Date:</span>
-            <span>${new Date(order.createdAt).toLocaleString("en-BD", {
-              timeZone: "Asia/Dhaka",
-              day: "2-digit", month: "short", year: "numeric",
-              hour: "2-digit", minute: "2-digit"
-            })}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Customer Email:</span>
-            <span>${order.userId?.email || "—"}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Customer Name:</span>
-            <span>${order.userId?.name || "—"}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Payment Method:</span>
-            <span style="text-transform:capitalize">${order.method}</span>
-          </div>
-          <div class="info-row">
-            <span class="info-label">Status:</span>
-            <span style="color:#16a34a;font-weight:bold">${order.status}</span>
-          </div>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th style="width:40px">#</th>
-              <th>Book Title</th>
-              <th style="text-align:right;width:100px">Price</th>
-            </tr>
-          </thead>
-          <tbody>${bookRows}</tbody>
-        </table>
-
-        <div class="totals">
-          ${order.discountAmount > 0
-            ? `<p style="color:#dc2626">Discount: − ৳ ${order.discountAmount}</p>`
-            : ""}
-          ${order.tax > 0
-            ? `<p style="color:#6b7280">Tax: + ৳ ${order.tax}</p>`
-            : ""}
-          <p class="grand-total">Total Paid: ৳ ${order.amount}</p>
-        </div>
-
-        <div class="footer">
-          ReadNova — Digital Library | support@readnova.com<br/>
-          This is an admin copy of the invoice.
-        </div>
-
-        <script>window.onload=()=>{window.print();}</script>
-      </body></html>
-    `);
-    win.document.close();
-  };
-
-  // ============================================================
-  // RENDER
-  // ============================================================
   if (loading) return (
-    <div className="flex justify-center items-center h-40 text-gray-400 text-sm">
-      Loading orders...
+    <div style={{ display:"flex", justifyContent:"center", alignItems:"center", height:200, color:"#94a3b8", fontSize:14 }}>
+      <div style={{ width:24, height:24, border:"2px solid #e2e8f0", borderTop:"2px solid #0e5a6f", borderRadius:"50%", animation:"spin 0.8s linear infinite", marginRight:10 }} />
+      Loading orders…
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 
   return (
-    <div className="p-4 max-w-4xl mx-auto">
+    <div style={{ padding:"24px", maxWidth:900, margin:"0 auto", fontFamily:"'Plus Jakarta Sans', sans-serif" }}>
 
-      {/* Title */}
-      <h2 className="text-2xl font-bold mb-6 flex items-center gap-2 text-gray-800">
-        <FaBoxOpen className="text-blue-500" />
-        Orders
-        <span className="text-sm font-normal text-gray-400 ml-1">
-          ({orders.length} total)
-        </span>
-      </h2>
+      {/* ── header ─────────────────────────────────────────── */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:24, flexWrap:"wrap", gap:12 }}>
+        <h2 style={{ fontSize:22, fontWeight:700, color:"#0f172a", display:"flex", alignItems:"center", gap:8 }}>
+          <FaBoxOpen style={{ color:"#0e5a6f" }} />
+          Orders
+          <span style={{ fontSize:13, fontWeight:400, color:"#94a3b8" }}>({orders.length} total)</span>
+        </h2>
 
-      {orders.length === 0 && (
-        <p className="text-gray-400 text-center mt-16">No orders yet.</p>
+        {/* search */}
+        <div style={{ display:"flex", alignItems:"center", gap:8, background:"#fff", border:"1px solid #e2e8f0", borderRadius:8, padding:"8px 12px", minWidth:240 }}>
+          <FaSearch style={{ color:"#94a3b8", fontSize:13 }} />
+          <input
+            style={{ border:"none", outline:"none", fontSize:13, color:"#0f172a", background:"transparent", fontFamily:"'Plus Jakarta Sans', sans-serif" }}
+            placeholder="Search by email, tran ID, status…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* ── stat cards ─────────────────────────────────────── */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(160px,1fr))", gap:14, marginBottom:24 }}>
+        {[
+          { label:"Total Orders",   value:orders.length,             color:"#0e5a6f", bg:"#e6f2f6" },
+          { label:"Paid",           value:paidCount,                  color:"#16a34a", bg:"#f0fdf4" },
+          { label:"Pending",        value:pendingCount,               color:"#ca8a04", bg:"#fefce8" },
+          { label:"Total Revenue",  value:`BDT ${totalRevenue}`,      color:"#7c3aed", bg:"#f5f3ff" },
+        ].map(({ label, value, color, bg }) => (
+          <div key={label} style={{ background:bg, borderRadius:10, padding:"14px 16px", border:"1px solid #e2e8f0" }}>
+            <p style={{ fontSize:20, fontWeight:700, color }}>{value}</p>
+            <p style={{ fontSize:11, color:"#64748b", marginTop:2 }}>{label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* ── empty ──────────────────────────────────────────── */}
+      {filtered.length === 0 && (
+        <div style={{ textAlign:"center", padding:"60px 0", color:"#94a3b8", fontSize:14 }}>
+          <FaBoxOpen style={{ fontSize:40, marginBottom:12, opacity:0.3 }} />
+          <p>{search ? "No matching orders" : "No orders yet."}</p>
+        </div>
       )}
 
-      {orders.map(order => (
-        <div key={order._id}
-          className="bg-white border border-gray-100 rounded-xl p-5 mb-4 shadow-sm hover:shadow-md transition"
-        >
-          {/* Row 1: Email + Date + Status */}
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+      {/* ── order cards ────────────────────────────────────── */}
+      {filtered.map(order => {
+        const st      = STATUS_MAP[order.status] ?? STATUS_MAP.pending;
+        const isOpen  = expanded === order._id;
+        const isPaid  = ["paid","approved"].includes(order.status);
+        const userEmail= order.userId?.email || String(order.userId || "—");
+        const userName = order.userId?.name  || "";
+        const books    = order.books || [];
 
-            {/* User Email */}
-            <div className="flex items-center gap-2 text-gray-700 text-sm font-medium">
-              <FaEnvelope className="text-blue-400 flex-shrink-0" />
-              {order.userId?.email || order.userId}
+        return (
+          <div key={order._id} style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, marginBottom:14, overflow:"hidden", boxShadow:"0 1px 4px rgba(0,0,0,0.05)" }}>
+
+            {/* ── main row ─────────────────────────────────── */}
+            <div
+              style={{ padding:"16px 20px", display:"flex", alignItems:"center", flexWrap:"wrap", gap:12, cursor:"pointer" }}
+              onClick={() => setExpanded(isOpen ? null : order._id)}
+            >
+              {/* user */}
+              <div style={{ flex:1, minWidth:160 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, fontWeight:600, color:"#0f172a" }}>
+                  <FaEnvelope style={{ color:"#0e5a6f", flexShrink:0 }} />
+                  {userEmail}
+                </div>
+                {userName && (
+                  <p style={{ fontSize:11, color:"#94a3b8", marginTop:2, marginLeft:18 }}>{userName}</p>
+                )}
+              </div>
+
+              {/* date */}
+              <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:11, color:"#94a3b8" }}>
+                <FaCalendarAlt />
+                {dateStr(order.createdAt)}
+              </div>
+
+              {/* status badge */}
+              <div style={{ display:"flex", alignItems:"center", gap:5, padding:"3px 10px", borderRadius:20, background:st.bg, color:st.color, fontSize:11, fontWeight:600 }}>
+                {st.icon} {st.label}
+              </div>
+
+              {/* amount */}
+              <div style={{ fontSize:15, fontWeight:700, color:"#0e5a6f", display:"flex", alignItems:"center", gap:5 }}>
+                <FaMoneyBillWave style={{ color:"#16a34a" }} />
+                BDT {order.amount}
+              </div>
+
+              {/* expand arrow */}
+              <span style={{ color:"#94a3b8", fontSize:11 }}>{isOpen ? "▲" : "▼"}</span>
             </div>
 
-            {/* Date */}
-            <div className="flex items-center gap-1 text-xs text-gray-400">
-              <FaCalendarAlt />
-              {new Date(order.createdAt).toLocaleString("en-BD", {
-                timeZone: "Asia/Dhaka",
-                day: "2-digit", month: "short", year: "numeric",
-                hour: "2-digit", minute: "2-digit"
-              })}
-            </div>
+            {/* ── expanded details ─────────────────────────── */}
+            {isOpen && (
+              <div style={{ borderTop:"1px solid #f1f5f9", padding:"16px 20px", background:"#f8fafc" }}>
 
-            <StatusBadge status={order.status} />
+                {/* tran + method */}
+                <div style={{ display:"flex", gap:24, flexWrap:"wrap", marginBottom:14 }}>
+                  <div style={{ fontSize:12, color:"#64748b" }}>
+                    <span style={{ fontWeight:600, color:"#0f172a" }}>Transaction ID: </span>
+                    <span style={{ fontFamily:"monospace" }}>{order.tranId}</span>
+                  </div>
+                  <div style={{ fontSize:12, color:"#64748b" }}>
+                    <span style={{ fontWeight:600, color:"#0f172a" }}>Method: </span>
+                    <span style={{ textTransform:"capitalize" }}>{order.method || "—"}</span>
+                  </div>
+                </div>
+
+                {/* books */}
+                <div style={{ marginBottom:14 }}>
+                  <p style={{ fontSize:11, fontWeight:600, color:"#94a3b8", marginBottom:8, display:"flex", alignItems:"center", gap:5 }}>
+                    <FaBook style={{ color:"#f97316" }} /> BOOKS PURCHASED
+                  </p>
+                  {books.length === 0
+                    ? <p style={{ fontSize:13, color:"#94a3b8" }}>No book details</p>
+                    : books.map((b, i) => (
+                        <div key={i} style={{ display:"flex", justifyContent:"space-between", fontSize:13, color:"#374151", padding:"5px 0", borderBottom:"1px solid #f1f5f9" }}>
+                          <span>📖 {b.title || b.bookId?.title || "Book"}</span>
+                          <span style={{ color:"#64748b" }}>BDT {b.price || 0}</span>
+                        </div>
+                      ))
+                  }
+                  {/* total */}
+                  <div style={{ display:"flex", justifyContent:"space-between", fontSize:14, fontWeight:700, color:"#0e5a6f", marginTop:8, paddingTop:8, borderTop:"2px solid #e2e8f0" }}>
+                    <span>Total</span>
+                    <span>BDT {order.amount}</span>
+                  </div>
+                </div>
+
+                {/* invoice download — only for paid */}
+                {isPaid && (
+                  <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
+
+                    {/* user copy */}
+                    <button
+                      style={{ display:"inline-flex", alignItems:"center", gap:7, padding:"8px 16px", borderRadius:8, background:"#f0fdf4", border:"1px solid #86efac", color:"#16a34a", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"'Plus Jakarta Sans', sans-serif", opacity: dlLoading === order.tranId + "u" ? 0.7 : 1 }}
+                      onClick={() => downloadInvoice(order.tranId, "user")}
+                      disabled={dlLoading === order.tranId + "u"}
+                    >
+                      {dlLoading === order.tranId + "u"
+                        ? <><div style={{ width:14, height:14, border:"2px solid #86efac", borderTop:"2px solid #16a34a", borderRadius:"50%", animation:"spin 0.8s linear infinite" }} /> Generating…</>
+                        : <><FaFilePdf /> User Copy</>
+                      }
+                    </button>
+
+                    {/* admin copy */}
+                    <button
+                      style={{ display:"inline-flex", alignItems:"center", gap:7, padding:"8px 16px", borderRadius:8, background:"#fefce8", border:"1px solid #fde047", color:"#854d0e", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"'Plus Jakarta Sans', sans-serif", opacity: dlLoading === order.tranId + "a" ? 0.7 : 1 }}
+                      onClick={() => downloadInvoice(order.tranId, "admin")}
+                      disabled={dlLoading === order.tranId + "a"}
+                    >
+                      {dlLoading === order.tranId + "a"
+                        ? <><div style={{ width:14, height:14, border:"2px solid #fde047", borderTop:"2px solid #854d0e", borderRadius:"50%", animation:"spin 0.8s linear infinite" }} /> Generating…</>
+                        : <><FaFilePdf /> Admin Copy</>
+                      }
+                    </button>
+
+                  </div>
+                )}
+
+              </div>
+            )}
           </div>
+        );
+      })}
 
-          {/* Row 2: Amount + Method + TranId */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm text-gray-600 mb-3">
-            <div className="flex items-center gap-2">
-              <FaMoneyBillWave className="text-green-500" />
-              <span><b>Amount:</b> ৳ {order.amount}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <FaCreditCard className="text-purple-400" />
-              <span className="capitalize"><b>Method:</b> {order.method}</span>
-            </div>
-            <div className="text-xs text-gray-400 flex items-center">
-              Tran: {order.tranId}
-            </div>
-          </div>
-
-          {/* Row 3: Books list */}
-          <div className="mb-4">
-            <p className="text-xs font-semibold text-gray-400 mb-1 flex items-center gap-1">
-              <FaBook className="text-orange-400" /> Books Purchased
-            </p>
-            <ul className="text-sm text-gray-700 pl-4 list-disc space-y-0.5">
-              {order.books.map((b, i) => (
-                <li key={i}>
-                  {b.title || "Unknown Title"}
-                  <span className="text-gray-400 ml-2 text-xs">৳ {b.price ?? 0}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Invoice Button */}
-          <button
-            onClick={() => printInvoice(order)}
-            className="flex items-center gap-2 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold px-4 py-2 rounded-lg transition border border-blue-200"
-          >
-            <FaFileInvoice /> Print / Download Invoice
-          </button>
-
-        </div>
-      ))}
-
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 };
