@@ -1,26 +1,19 @@
 const express = require("express");
 const router = express.Router();
-const Message = require("../models/Message");
 
-// GET all messages
-router.get("/", async (req, res) => {
-  const messages = await Message.find().sort({ createdAt: -1 });
-  res.json(messages);
-});
+const {
+  sendMessage,
+  getMessages,
+  resolveMessage // 🔥 ADD THIS
+} = require("../controllers/messageController");
 
-// ✅ RESOLVE MESSAGE (🔥 THIS FIXES YOUR ISSUE)
-router.put("/:id/resolve", async (req, res) => {
-  try {
-    const message = await Message.findByIdAndUpdate(
-      req.params.id,
-      { isResolved: true },
-      { new: true }
-    );
+// ✅ POST
+router.post("/", sendMessage);
 
-    res.json(message);
-  } catch (err) {
-    res.status(500).json({ message: "Error updating" });
-  }
-});
+// ✅ GET
+router.get("/", getMessages);
+
+// 🔥 ADD THIS LINE (MOST IMPORTANT)
+router.put("/:id/resolve", resolveMessage);
 
 module.exports = router;

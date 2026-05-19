@@ -246,12 +246,12 @@ const Orders = () => {
                     >
                       {dlLoading === order.tranId + "u"
                         ? <><div style={{ width:14, height:14, border:"2px solid #86efac", borderTop:"2px solid #16a34a", borderRadius:"50%", animation:"spin 0.8s linear infinite" }} /> Generating…</>
-                        : <><FaFilePdf /> User Copy</>
+                        : <><FaFilePdf /> invoice Copy</>
                       }
                     </button>
 
                     {/* admin copy */}
-                    <button
+                    {/* <button
                       style={{ display:"inline-flex", alignItems:"center", gap:7, padding:"8px 16px", borderRadius:8, background:"#fefce8", border:"1px solid #fde047", color:"#854d0e", fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"'Plus Jakarta Sans', sans-serif", opacity: dlLoading === order.tranId + "a" ? 0.7 : 1 }}
                       onClick={() => downloadInvoice(order.tranId, "admin")}
                       disabled={dlLoading === order.tranId + "a"}
@@ -260,7 +260,7 @@ const Orders = () => {
                         ? <><div style={{ width:14, height:14, border:"2px solid #fde047", borderTop:"2px solid #854d0e", borderRadius:"50%", animation:"spin 0.8s linear infinite" }} /> Generating…</>
                         : <><FaFilePdf /> Admin Copy</>
                       }
-                    </button>
+                    </button> */}
 
                   </div>
                 )}
