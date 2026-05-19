@@ -1,33 +1,33 @@
-const User = require("../models/User");
+const User     = require("../models/User");
+const bcrypt   = require("bcryptjs");
 
-// REGISTER
+// =======================================================
+// ✅ REGISTER — password bcrypt hash করে save
+// POST /api/auth/register
+// =======================================================
 const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
+    // duplicate check
     const exist = await User.findOne({ email });
-    if (exist) {
-      return res.status(400).json({ message: "User already exists" });
-    }
+    if (exist) return res.status(400).json({ message: "User already exists" });
 
-    // ✅ SAVE name + role
+    // hash password
+    const hashed = await bcrypt.hash(password, 10);
+
     const user = new User({
-      name,                  // ✅ now saved
+      name,
       email,
-      password,
-      role: "user"           // ✅ default role
+      password: hashed,
+      role: "user",
     });
 
     await user.save();
 
     res.json({
       success: true,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }
+      user: { _id: user._id, name: user.name, email: user.email, role: user.role },
     });
 
   } catch (err) {
@@ -36,26 +36,25 @@ const register = async (req, res) => {
   }
 };
 
-// LOGIN
+// =======================================================
+// ✅ LOGIN — bcrypt.compare দিয়ে verify
+// POST /api/auth/login
+// =======================================================
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
-    if (!user || user.password !== password) {
-      return res.status(400).json({ message: "Invalid credentials" });
-    }
+    // bcrypt compare
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
-    // ✅ SEND CLEAN USER DATA (IMPORTANT)
     res.json({
       success: true,
-      token: "demo-token",
-      user: {
-        _id: user._id,              // ✅ needed
-        email: user.email,
-        role: user.role || "user"   // ✅ VERY IMPORTANT
-      }
+      token: "demo-token-" + user._id,
+      user: { _id: user._id, name: user.name, email: user.email, role: user.role || "user" },
     });
 
   } catch (err) {
@@ -63,6 +62,5 @@ const login = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
 
 module.exports = { register, login };
