@@ -1,8 +1,8 @@
-const User     = require("../models/User");
-const bcrypt   = require("bcryptjs");
+const bcrypt = require("bcryptjs");
+const User   = require("../models/User");
 
 // =======================================================
-// ✅ REGISTER — password bcrypt hash করে save
+// ✅ REGISTER — password bcrypt hash করে save করো
 // POST /api/auth/register
 // =======================================================
 const register = async (req, res) => {
@@ -13,13 +13,13 @@ const register = async (req, res) => {
     const exist = await User.findOne({ email });
     if (exist) return res.status(400).json({ message: "User already exists" });
 
-    // hash password
-    const hashed = await bcrypt.hash(password, 10);
+    // hash password before saving
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = new User({
       name,
       email,
-      password: hashed,
+      password: hashedPassword, // hashed
       role: "user",
     });
 
@@ -37,7 +37,7 @@ const register = async (req, res) => {
 };
 
 // =======================================================
-// ✅ LOGIN — bcrypt.compare দিয়ে verify
+// ✅ LOGIN — bcrypt compare করো
 // POST /api/auth/login
 // =======================================================
 const login = async (req, res) => {

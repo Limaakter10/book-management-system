@@ -12,14 +12,20 @@ const User     = require("../models/User");
 router.post("/add-to-library", async (req, res) => {
   try {
     const { userId, bookId } = req.body;
+
     if (!userId || !bookId)
       return res.status(400).json({ success: false, message: "userId and bookId required" });
+
     if (!mongoose.Types.ObjectId.isValid(userId) || !mongoose.Types.ObjectId.isValid(bookId))
       return res.status(400).json({ success: false, message: "Invalid ID format" });
+
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
     await User.findByIdAndUpdate(userId, { $addToSet: { library: bookId } });
+
     res.json({ success: true, message: "Book added to library" });
+
   } catch (err) {
     console.error("ADD LIBRARY ERROR:", err);
     res.status(500).json({ success: false, message: "Error adding to library" });
@@ -33,15 +39,24 @@ router.post("/add-to-library", async (req, res) => {
 router.post("/add-to-library-bulk", async (req, res) => {
   try {
     const { userId, books } = req.body;
+
     if (!userId || !books || books.length === 0)
       return res.status(400).json({ success: false, message: "userId and books required" });
+
     if (!mongoose.Types.ObjectId.isValid(userId))
       return res.status(400).json({ success: false, message: "Invalid userId" });
+
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
+
     const validBooks = books.filter(id => mongoose.Types.ObjectId.isValid(id));
-    await User.findByIdAndUpdate(userId, { $addToSet: { library: { $each: validBooks } } });
+
+    await User.findByIdAndUpdate(userId, {
+      $addToSet: { library: { $each: validBooks } }
+    });
+
     res.json({ success: true, message: "Books added to library" });
+
   } catch (err) {
     console.error("BULK LIBRARY ERROR:", err);
     res.status(500).json({ success: false, message: "Error saving library" });
@@ -55,11 +70,15 @@ router.post("/add-to-library-bulk", async (req, res) => {
 router.get("/library/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
+
     if (!mongoose.Types.ObjectId.isValid(userId))
       return res.status(400).json({ message: "Invalid userId" });
+
     const user = await User.findById(userId).populate("library");
     if (!user) return res.status(404).json({ message: "User not found" });
+
     res.json(user.library);
+
   } catch (err) {
     console.error("LIBRARY ERROR:", err);
     res.status(500).json({ message: "Error fetching library" });
@@ -73,11 +92,15 @@ router.get("/library/:userId", async (req, res) => {
 router.get("/profile/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
+
     if (!mongoose.Types.ObjectId.isValid(userId))
       return res.status(400).json({ message: "Invalid userId" });
+
     const user = await User.findById(userId).select("-password");
     if (!user) return res.status(404).json({ message: "User not found" });
+
     res.json(user);
+
   } catch (err) {
     console.error("GET PROFILE ERROR:", err);
     res.status(500).json({ message: "Error fetching profile" });
@@ -92,15 +115,20 @@ router.put("/profile/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     const { name, phone, address } = req.body;
+
     if (!mongoose.Types.ObjectId.isValid(userId))
       return res.status(400).json({ message: "Invalid userId" });
+
     const updated = await User.findByIdAndUpdate(
       userId,
       { $set: { name, phone, address } },
       { new: true, runValidators: true }
     ).select("-password");
+
     if (!updated) return res.status(404).json({ message: "User not found" });
+
     res.json({ success: true, user: updated });
+
   } catch (err) {
     console.error("UPDATE PROFILE ERROR:", err);
     res.status(500).json({ message: "Error updating profile" });
@@ -108,7 +136,7 @@ router.put("/profile/:userId", async (req, res) => {
 });
 
 // =======================================================
-// ✅ 6. CHANGE PASSWORD — bcrypt hash + compare
+// ✅ 6. CHANGE PASSWORD — bcrypt compare + hash
 // PUT /api/users/change-password/:userId
 // =======================================================
 router.put("/change-password/:userId", async (req, res) => {
@@ -122,19 +150,24 @@ router.put("/change-password/:userId", async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // bcrypt compare — works whether password is hashed or plain
-    const isMatch = await bcrypt.compare(currentPassword, user.password)
-      // fallback: if old users have plain text password
-      .catch(() => false);
+    // ─── check if existing password is hashed or plain text ───────────
+    let isMatch = false;
 
-    // also try plain text match as fallback for old accounts
-    const plainMatch = user.password === currentPassword;
+    const looksHashed = user.password.startsWith("$2");
 
-    if (!isMatch && !plainMatch) {
+    if (looksHashed) {
+      // bcrypt hashed password — use bcrypt.compare
+      isMatch = await bcrypt.compare(currentPassword, user.password);
+    } else {
+      // old plain text password — direct compare
+      isMatch = user.password === currentPassword;
+    }
+
+    if (!isMatch) {
       return res.status(400).json({ message: "Current password is incorrect" });
     }
 
-    // always save as bcrypt hash going forward
+    // hash new password before saving
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
 
@@ -155,6 +188,7 @@ router.get("/all", async (req, res) => {
     const users = await User.find().select("-password");
     res.json(users);
   } catch (err) {
+    console.error("GET USERS ERROR:", err);
     res.status(500).json({ message: "Error fetching users" });
   }
 });
@@ -167,10 +201,17 @@ router.post("/block/:id", async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: "User not found" });
+
     user.isBlocked = !user.isBlocked;
     await user.save();
-    res.json({ success: true, message: user.isBlocked ? "User blocked 🚫" : "User unblocked ✅" });
+
+    res.json({
+      success: true,
+      message: user.isBlocked ? "User blocked 🚫" : "User unblocked ✅"
+    });
+
   } catch (err) {
+    console.error("BLOCK ERROR:", err);
     res.status(500).json({ message: "Error updating user" });
   }
 });
@@ -184,6 +225,7 @@ router.delete("/delete/:id", async (req, res) => {
     await User.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: "User deleted 🗑️" });
   } catch (err) {
+    console.error("DELETE USER ERROR:", err);
     res.status(500).json({ message: "Error deleting user" });
   }
 });
