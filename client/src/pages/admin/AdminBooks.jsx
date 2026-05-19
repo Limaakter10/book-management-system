@@ -1,11 +1,7 @@
 import { useEffect, useState } from "react";
-import api from "../../api/axios"; // ✅ axios instance use করো
+import api from "../../api/axios";
 import { FaBook, FaEdit, FaTrash, FaPlus } from "react-icons/fa";
 
-// ❌ OLD
-// const BASE_URL = "http://localhost:3000";
-
-// ✅ NEW (LIVE URL)
 const BASE_URL = "https://book-management-system-ks6w.onrender.com";
 
 const AdminBooks = () => {
@@ -30,14 +26,12 @@ const AdminBooks = () => {
   }, []);
 
   const fetchBooks = async () => {
-    const res = await api.get("/api/books"); // ✅ FIX
+    const res = await api.get("/api/books");
     setBooks(res.data.books);
   };
 
-  // INPUT
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-
     setForm({
       ...form,
       [name]: type === "checkbox" ? checked : value
@@ -52,18 +46,15 @@ const AdminBooks = () => {
     }
   };
 
-  // ADD / UPDATE
   const handleSubmit = async () => {
     try {
       const formData = new FormData();
 
       let price = Number(form.price);
 
-      if (form.isFree) {
-        price = 0;
-      } else if (form.discount > 0) {
+      if (form.isFree) price = 0;
+      else if (form.discount > 0)
         price = price - (price * form.discount) / 100;
-      }
 
       Object.keys(form).forEach((key) => {
         formData.append(key, form[key]);
@@ -78,23 +69,21 @@ const AdminBooks = () => {
       formData.append("numReviews", 0);
 
       if (editingId) {
-        await api.put(`/api/books/${editingId}`, formData); // ✅ FIX
+        await api.put(`/api/books/${editingId}`, formData);
         alert("Book updated ✅");
       } else {
-        await api.post("/api/books/upload", formData); // ✅ FIX
+        await api.post("/api/books/upload", formData);
         alert("Book added ✅");
       }
 
       resetForm();
       fetchBooks();
-
     } catch (err) {
       console.error(err);
       alert("Error ❌");
     }
   };
 
-  // EDIT
   const handleEdit = (book) => {
     setEditingId(book._id);
 
@@ -109,16 +98,14 @@ const AdminBooks = () => {
     });
   };
 
-  // DELETE
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this book?")) return;
 
-    await api.delete(`/api/books/${id}`); // ✅ FIX
+    await api.delete(`/api/books/${id}`);
     alert("Deleted ✅");
     fetchBooks();
   };
 
-  // RESET
   const resetForm = () => {
     setEditingId(null);
     setForm({
@@ -135,35 +122,19 @@ const AdminBooks = () => {
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h2 style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+    <div style={{ padding: "25px", background: "#f5f6f7", minHeight: "100vh" }}>
+      
+      <h2 style={{ display: "flex", gap: "8px" }}>
         <FaBook /> Admin Book Manager
       </h2>
 
       {/* FORM */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: "10px"
-      }}>
-
-        <input name="title" placeholder="Title"
-          value={form.title} onChange={handleChange} />
-
-        <input name="author" placeholder="Author"
-          value={form.author} onChange={handleChange} />
-
-        <input name="price" placeholder="Price"
-          value={form.price}
-          onChange={handleChange}
-          disabled={form.isFree}
-        />
-
-        <input name="category" placeholder="Category"
-          value={form.category} onChange={handleChange} />
-
-        <input name="subCategory" placeholder="SubCategory"
-          value={form.subCategory} onChange={handleChange} />
+      <div className="form-box">
+        <input name="title" placeholder="Title" value={form.title} onChange={handleChange} />
+        <input name="author" placeholder="Author" value={form.author} onChange={handleChange} />
+        <input name="price" placeholder="Price" value={form.price} onChange={handleChange} disabled={form.isFree} />
+        <input name="category" placeholder="Category" value={form.category} onChange={handleChange} />
+        <input name="subCategory" placeholder="SubCategory" value={form.subCategory} onChange={handleChange} />
 
         <input
           type="number"
@@ -175,41 +146,29 @@ const AdminBooks = () => {
         />
 
         <label>
-          <input
-            type="checkbox"
-            name="isFree"
-            checked={form.isFree}
-            onChange={handleChange}
-          />
+          <input type="checkbox" name="isFree" checked={form.isFree} onChange={handleChange} />
           Make FREE
         </label>
 
-        {/* COVER */}
         <div>
           <label>Cover Image</label>
           <input type="file" name="coverImage" onChange={handleFileChange} />
-          {coverImage && <p>{coverImage.name}</p>}
         </div>
 
-        {/* PDF */}
         <div>
           <label>PDF File</label>
           <input type="file" name="pdf" onChange={handleFileChange} />
-          {pdf && <p>{pdf.name}</p>}
         </div>
-
       </div>
 
-      <button
-        onClick={handleSubmit}
-        style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "6px" }}
-      >
+      {/* BUTTON */}
+      <button className="main-btn" onClick={handleSubmit}>
         <FaPlus />
         {editingId ? "Update Book" : "Add Book"}
       </button>
 
       {editingId && (
-        <button onClick={resetForm} style={{ marginLeft: "10px" }}>
+        <button onClick={resetForm} className="cancel-btn">
           Cancel
         </button>
       )}
@@ -217,45 +176,28 @@ const AdminBooks = () => {
       {/* LIST */}
       <div style={{ marginTop: "30px" }}>
         {books.map((b) => (
-          <div key={b._id}
-            style={{
-              border: "1px solid #ddd",
-              padding: "10px",
-              marginBottom: "10px",
-              display: "flex",
-              justifyContent: "space-between"
-            }}
-          >
+          <div key={b._id} className="card">
 
-            <div style={{ display: "flex", gap: "10px" }}>
+            <div style={{ display: "flex", gap: "12px" }}>
               <img
-                src={`${BASE_URL}${b.coverImage}`} // ✅ FIXED
+                src={`${BASE_URL}${b.coverImage}`}
                 alt={b.title}
-                style={{ width: "50px", height: "70px" }}
+                className="book-img"
               />
 
               <div>
                 <b>{b.title}</b>
                 <p>{b.author}</p>
-
-                <p>
-                  {b.price === 0 ? "FREE 🎁" : `৳ ${b.price}`}
-                </p>
-
-                <p>
-                  {b.discount > 0
-                    ? `${b.discount}% OFF`
-                    : "No Discount"}
-                </p>
+                <p>{b.price === 0 ? "FREE 🎁" : `৳ ${b.price}`}</p>
+                <p>{b.discount > 0 ? `${b.discount}% OFF` : "No Discount"}</p>
               </div>
             </div>
 
             <div style={{ display: "flex", gap: "10px" }}>
-              <button onClick={() => handleEdit(b)}>
+              <button onClick={() => handleEdit(b)} className="edit-btn">
                 <FaEdit />
               </button>
-
-              <button onClick={() => handleDelete(b._id)}>
+              <button onClick={() => handleDelete(b._id)} className="delete-btn">
                 <FaTrash />
               </button>
             </div>
@@ -263,6 +205,83 @@ const AdminBooks = () => {
           </div>
         ))}
       </div>
+
+      {/* ================= STYLE ================= */}
+      <style>{`
+        .form-box {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+          background: #fff;
+          padding: 15px;
+          border-radius: 12px;
+          margin-top: 10px;
+        }
+
+        input {
+          padding: 10px;
+          border-radius: 8px;
+          border: 1px solid #ddd;
+        }
+
+        .main-btn {
+          margin-top: 15px;
+          padding: 10px 18px;
+          border-radius: 10px;
+          background: linear-gradient(135deg, #0f3460, #16213e);
+          color: #fff;
+          border: none;
+          cursor: pointer;
+          font-weight: 600;
+          display: flex;
+          gap: 6px;
+          align-items: center;
+        }
+
+        .cancel-btn {
+          margin-left: 10px;
+          padding: 10px 15px;
+          border-radius: 8px;
+          border: none;
+          background: #ccc;
+          cursor: pointer;
+        }
+
+        .card {
+          display: flex;
+          justify-content: space-between;
+          background: #fff;
+          padding: 12px;
+          border-radius: 12px;
+          margin-bottom: 12px;
+          box-shadow: 0 6px 15px rgba(0,0,0,0.08);
+        }
+
+        .book-img {
+          width: 55px;
+          height: 75px;
+          border-radius: 6px;
+          object-fit: cover;
+        }
+
+        .edit-btn {
+          background: #0f3460;
+          color: #fff;
+          border: none;
+          padding: 6px 10px;
+          border-radius: 6px;
+        }
+
+        .delete-btn {
+          background: red;
+          color: #fff;
+          border: none;
+          padding: 6px 10px;
+          border-radius: 6px;
+        }
+
+      `}</style>
+
     </div>
   );
 };
