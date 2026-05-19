@@ -9,42 +9,55 @@ const Checkout = () => {
     try {
       setLoading(true);
 
-      // ── Step 1: logged-in user
       const userId = localStorage.getItem("userId");
-      if (!userId) { alert("⚠️ Please login first"); return; }
+      if (!userId) {
+        alert("⚠️ Please login first");
+        return;
+      }
 
-      // ── Step 2: cart data
       const cart = JSON.parse(localStorage.getItem("cart")) || [];
-      if (cart.length === 0) { alert("⚠️ Your cart is empty"); return; }
+      if (cart.length === 0) {
+        alert("⚠️ Your cart is empty");
+        return;
+      }
 
-      // ── Step 3: books array — FIX: title + price যোগ করা হয়েছে
-      // আগে শুধু bookId ছিল → invoice এ "Book" আর ৳0 দেখাত
-      // এখন title + price সহ পাঠানো হচ্ছে → invoice এ সঠিক data দেখাবে
-      const books = cart.map((book) => ({
-        bookId: book._id,               // DB reference
-        title:  book.title  || "Book",  // ← invoice এ book name
-        price:  Number(book.price || 0) // ← invoice এ price
-      }));
+      // Calculate books data with discount applied
+      const books = cart.map((item) => {
+        const originalPrice = Number(item.price || 0);
+        const discountPercent = Number(item.discount || 0);
+        const discountedPrice =
+          discountPercent > 0
+            ? originalPrice - (originalPrice * discountPercent) / 100
+            : originalPrice;
 
-      // ── Step 4: total amount
-      const amount = cart.reduce(
-        (total, book) => total + Number(book.price || 0), 0
-      );
-
-      // ── Step 5: SSL init call
-      const res = await api.post("/api/ssl/init", {
-        amount,
-        userId,
-        books, // ← title + price সহ
+        return {
+          bookId: item._id,
+          title: item.title || "Book",
+          price: discountedPrice,
+          originalPrice: originalPrice,
+          discount: discountPercent,
+        };
       });
 
-      // ── Step 6: SSLCommerz এ redirect
-      if (res?.data?.url) {
-        window.location.href = res.data.url;
+      // Calculate subtotal (sum of discounted prices)
+      const subtotal = books.reduce((sum, b) => sum + b.price, 0);
+      const tax = subtotal * 0.05; // 5% tax
+      const totalAmount = subtotal + tax;
+
+      // Send data to server to initiate payment
+      const response = await api.post("/api/ssl/init", {
+        userId,
+        books,
+        subtotal,
+        tax,
+        amount: totalAmount,
+      });
+
+      if (response?.data?.url) {
+        window.location.href = response.data.url;
       } else {
         alert("❌ Payment URL not generated");
       }
-
     } catch (error) {
       console.error("❌ Payment Error:", error);
       alert("Something went wrong during payment");

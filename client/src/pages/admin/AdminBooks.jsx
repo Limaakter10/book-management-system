@@ -188,7 +188,7 @@ const AdminBooks = () => {
               <div>
                 <b>{b.title}</b>
                 <p>{b.author}</p>
-                <p>{b.price === 0 ? "FREE 🎁" : `৳ ${b.price}`}</p>
+                <p>{b.price === 0 ? "FREE 🎁" : `BDT ${b.price}`}</p>
                 <p>{b.discount > 0 ? `${b.discount}% OFF` : "No Discount"}</p>
               </div>
             </div>
