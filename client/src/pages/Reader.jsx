@@ -3,9 +3,8 @@ import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 
 const BASE_URL = "https://book-management-system-ks6w.onrender.com";
-const W = 860; // PDF + canvas width
-const H = 12000; // tall enough for most PDFs
-
+const W = 860;
+const H = 12000;
 const COLORS = ["#000000","#e53e3e","#2b6cb0","#276749","#744210","#553c9a"];
 
 // ── IndexedDB ─────────────────────────────────────────────────────────────────
@@ -50,8 +49,8 @@ export default function Reader() {
   const { id }   = useParams();
   const navigate = useNavigate();
 
-  const cvs  = useRef(null); // canvas DOM node
-  const body = useRef(null); // scroll container
+  const cvs  = useRef(null);
+  const body = useRef(null);
   const draw = useRef(false);
   const lp   = useRef({ x:0, y:0 });
   const hist = useRef([]);
@@ -60,21 +59,28 @@ export default function Reader() {
   const [url,    setUrl]    = useState(null);
   const [busy,   setBusy]   = useState(true);
   const [zoom,   setZoom]   = useState(1);
-  const [tool,   setTool]   = useState(""); // "" | "pen" | "hi" | "er"
+  const [tool,   setTool]   = useState("");
   const [color,  setColor]  = useState("#000000");
   const [sz,     setSz]     = useState(3);
-  const [ok,     setOk]     = useState(false);
+  const [ok,     setOk]     = useState(false);   // save feedback
+  const [saving, setSaving] = useState(false);   // save loading
 
-  // fetch
+  // ── PDF height: fills viewport minus topbar ────────────────
+  const pdfH = typeof window !== "undefined" ? window.innerHeight - 50 : 800;
+
+  // fetch book
   useEffect(() => {
-    axios.get(`${BASE_URL}/api/books/${id}`).then(r => {
-      let u = r.data.pdfUrl;
-      if (u && !u.startsWith("http")) u = BASE_URL + u;
-      setUrl(u);
-    }).catch(console.error).finally(() => setBusy(false));
+    axios.get(`${BASE_URL}/api/books/${id}`)
+      .then(r => {
+        let u = r.data.pdfUrl;
+        if (u && !u.startsWith("http")) u = BASE_URL + u;
+        setUrl(u);
+      })
+      .catch(console.error)
+      .finally(() => setBusy(false));
   }, [id]);
 
-  // load saved
+  // load saved drawing from IndexedDB
   useEffect(() => {
     idb.load(`d${id}`).then(v => {
       if (!v || !cvs.current) return;
@@ -87,7 +93,7 @@ export default function Reader() {
     });
   }, [id]);
 
-  // block download
+  // block download shortcuts
   useEffect(() => {
     const nc = e => e.preventDefault();
     const nk = e => {
@@ -101,23 +107,25 @@ export default function Reader() {
     };
   }, []);
 
-  // ── helpers ──────────────────────────────────────────────────────────────────
+  // ── helpers ───────────────────────────────────────────────────────────────
   const snap = () => {
     const c = cvs.current; if (!c) return;
     const d = c.toDataURL();
     hist.current = hist.current.slice(0, hi.current + 1);
     hist.current.push(d);
     hi.current = hist.current.length - 1;
-    idb.save(`d${id}`, d);
+    idb.save(`d${id}`, d); // auto-save to IndexedDB on every stroke
   };
 
-  // IMPORTANT: get raw pixel position — no zoom division needed
-  // because canvas width/height attribute == CSS width/height (both W px)
   const pos = e => {
     const r  = cvs.current.getBoundingClientRect();
     const cx = e.touches ? e.touches[0].clientX : e.clientX;
     const cy = e.touches ? e.touches[0].clientY : e.clientY;
-    return { x: cx - r.left, y: cy - r.top };
+    // canvas pixel coords — divide by zoom because canvas CSS size is zoomed
+    return {
+      x: (cx - r.left) / zoom,
+      y: (cy - r.top)  / zoom,
+    };
   };
 
   const down = e => {
@@ -177,12 +185,43 @@ export default function Reader() {
     hist.current=[]; hi.current=-1; idb.del(`d${id}`);
   };
 
-  const save = () => { setOk(true); setTimeout(()=>setOk(false),2000); };
+  // ── PERMANENT SAVE — stores canvas dataURL to localStorage keyed by bookId
+  // (backend e save korte hole /api/annotations route lagbe — ekhon localStorage e permanent)
+  const save = async () => {
+    const c = cvs.current; if (!c) return;
+    setSaving(true);
+    try {
+      const dataUrl = c.toDataURL("image/png");
+      // 1. IndexedDB e save (tab close holeo thake)
+      await idb.save(`d${id}`, dataUrl);
+      // 2. localStorage e backup (cross-session)
+      try { localStorage.setItem(`reader_draw_${id}`, dataUrl); } catch(_) {}
+      setOk(true);
+      setTimeout(() => setOk(false), 2500);
+    } catch(e) {
+      console.error("Save failed", e);
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  const tog = t => setTool(p => p===t ? "" : t);
+  // Load from localStorage as fallback
+  useEffect(() => {
+    const ls = localStorage.getItem(`reader_draw_${id}`);
+    if (!ls || !cvs.current) return;
+    idb.load(`d${id}`).then(idbVal => {
+      if (idbVal) return; // IndexedDB has data, skip localStorage
+      const img = new Image(); img.src = ls;
+      img.onload = () => {
+        cvs.current?.getContext("2d")?.drawImage(img, 0, 0);
+        hist.current = [ls]; hi.current = 0;
+      };
+    });
+  }, [id]);
+
+  const tog  = t => setTool(p => p===t ? "" : t);
   const adjZ = d => setZoom(z => parseFloat(Math.min(3,Math.max(0.4,z+d)).toFixed(1)));
-
-  const cur = tool==="pen"?"crosshair":tool==="hi"?"text":tool==="er"?"cell":"default";
+  const cur  = tool==="pen"?"crosshair":tool==="hi"?"text":tool==="er"?"cell":"default";
 
   if (busy) return <div style={S.c}><Spin/><p style={{color:"#999",marginTop:10}}>Loading…</p></div>;
   if (!url)  return <div style={S.c}><p style={{color:"#f87171"}}>❌ PDF not found</p><button style={S.gb} onClick={()=>navigate(-1)}>← Back</button></div>;
@@ -193,7 +232,6 @@ export default function Reader() {
       {/* ═══════════ TOP BAR ═══════════ */}
       <div style={S.bar}>
 
-        {/* back */}
         <B onClick={()=>navigate(-1)}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
         </B>
@@ -228,7 +266,7 @@ export default function Reader() {
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           </B>
 
-          {/* color dots — pen mode only */}
+          {/* color dots */}
           {tool==="pen" && COLORS.map(c=>(
             <button key={c} onClick={()=>setColor(c)} style={{
               width:14,height:14,borderRadius:"50%",backgroundColor:c,
@@ -237,7 +275,7 @@ export default function Reader() {
             }}/>
           ))}
 
-          {/* size — pen mode only */}
+          {/* size */}
           {tool==="pen" && [2,4,8].map(s=>(
             <button key={s} onClick={()=>setSz(s)} style={{
               width:22,height:22,borderRadius:4,
@@ -268,16 +306,19 @@ export default function Reader() {
 
           <div style={S.sep}/>
 
-          {/* save */}
-          <button onClick={save} style={{
+          {/* SAVE — permanently saves drawing */}
+          <button onClick={save} disabled={saving} style={{
             display:"flex",alignItems:"center",gap:5,
             padding:"0 10px",height:28,borderRadius:6,
-            fontSize:11,cursor:"pointer",fontFamily:"inherit",flexShrink:0,
-            background:ok?"rgba(0,208,132,0.15)":"rgba(96,165,250,0.1)",
-            color:ok?"#00d084":"#60a5fa",
-            border:`1px solid ${ok?"rgba(0,208,132,0.3)":"rgba(96,165,250,0.25)"}`,
+            fontSize:11,cursor:saving?"wait":"pointer",fontFamily:"inherit",flexShrink:0,
+            background:ok?"rgba(0,208,132,0.15)":saving?"rgba(255,255,255,0.05)":"rgba(96,165,250,0.1)",
+            color:ok?"#00d084":saving?"#555":"#60a5fa",
+            border:`1px solid ${ok?"rgba(0,208,132,0.3)":saving?"rgba(255,255,255,0.08)":"rgba(96,165,250,0.25)"}`,
+            transition:"all 0.2s",
           }}>
-            {ok
+            {saving
+              ? <><Dots/> Saving…</>
+              : ok
               ? <><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>Saved!</>
               : <><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Save</>
             }
@@ -290,37 +331,38 @@ export default function Reader() {
       <div ref={body} style={S.body}>
         <div style={{
           position:"relative",
-          width:W*zoom,
-          height:"auto",
+          width: W * zoom,
           flexShrink:0,
-          transformOrigin:"top left",
         }}>
 
-          {/* iframe — PDF */}
-           <iframe
-    src={`${url}#toolbar=0&navpanes=0`}
-    style={{
-      width:W * zoom,     // ✅ zoom এখানে apply
-      height:H * zoom,    // ✅ FIX
-      border:"none",
-      display:"block",
-      backgroundColor:"#fff",
-      pointerEvents:"none",
-    }}
-    title="PDF"
-  />
-          {/* canvas — exact same size as iframe, scales with zoom */}
+          {/* ── iframe: height fills full viewport so PDF is scrollable ── */}
+          <iframe
+            src={`${url}#toolbar=0&navpanes=0&scrollbar=1`}
+            style={{
+              width: W,
+              height: pdfH,           // full viewport height — scroll inside
+              border:"none",
+              display:"block",
+              backgroundColor:"#fff",
+              transform:`scale(${zoom})`,
+              transformOrigin:"top left",
+              pointerEvents: tool ? "none" : "auto", // allow scroll when no tool active
+            }}
+            title="PDF"
+          />
+
+          {/* ── canvas overlay ── */}
           <canvas
             ref={cvs}
-            width={W}    // pixel width = W
-            height={H}   // pixel height = H
+            width={W}
+            height={H}
             style={{
               position:"absolute",
               top:0, left:0,
-              width:W*zoom,   // CSS width = zoomed
-              height:H*zoom,  // CSS height = zoomed
-              cursor:cur,
-              pointerEvents:"all",
+              width: W * zoom,
+              height: H * zoom,
+              cursor: cur,
+              pointerEvents: tool ? "all" : "none",
               touchAction:"none",
             }}
             onMouseDown={down}
@@ -334,7 +376,7 @@ export default function Reader() {
         </div>
       </div>
 
-      {/* status */}
+      {/* status bar */}
       {tool && (
         <div style={S.sb}>
           <div style={{
@@ -342,18 +384,27 @@ export default function Reader() {
             backgroundColor:tool==="er"?"#f87171":tool==="hi"?"#ffe600":color,
           }}/>
           <span style={{color:"#888",fontSize:12}}>
-            {tool==="er"?"Eraser":tool==="hi"?"Highlighter":"Pen"} active
+            {tool==="er"?"Eraser active — drag to erase"
+            :tool==="hi"?"Highlighter active — drag to highlight"
+            :"Pen active — drag to draw"}
           </span>
           <button style={S.ex} onClick={()=>setTool("")}>Exit</button>
         </div>
       )}
 
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      {/* scroll hint when no tool */}
+      {!tool && (
+        <div style={{...S.sb, gap:6}}>
+          <span style={{color:"#555",fontSize:11}}>scroll ↕ to read • select a tool to annotate</span>
+        </div>
+      )}
+
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}} @keyframes blink{0%,80%,100%{opacity:0}40%{opacity:1}}`}</style>
     </div>
   );
 }
 
-// ── Button component ──────────────────────────────────────────────────────────
+// ── Button ────────────────────────────────────────────────────────────────────
 function B({ children, onClick, title, active, ac="#00d084", style={} }) {
   const rgb = ac==="#ffe600"?"255,230,0":ac==="#f87171"?"248,113,113":"0,208,132";
   return (
@@ -373,6 +424,16 @@ function B({ children, onClick, title, active, ac="#00d084", style={} }) {
 
 function Spin() {
   return <div style={{width:28,height:28,border:"2px solid rgba(255,255,255,0.08)",borderTop:"2px solid #60a5fa",borderRadius:"50%",animation:"spin 1s linear infinite"}}/>;
+}
+
+function Dots() {
+  return (
+    <span style={{display:"inline-flex",gap:2,alignItems:"center"}}>
+      {[0,1,2].map(i=>(
+        <span key={i} style={{width:3,height:3,borderRadius:"50%",backgroundColor:"currentColor",animation:`blink 1.2s ${i*0.2}s infinite`}}/>
+      ))}
+    </span>
+  );
 }
 
 const S = {

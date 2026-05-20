@@ -3,7 +3,6 @@ import {
   FaShoppingCart,
   FaPhoneAlt,
   FaEnvelope,
-  FaUser,
   FaSignOutAlt,
   FaBook,
   FaCog,
@@ -18,37 +17,28 @@ const Navbar = () => {
   const navigate = useNavigate();
   const { cart } = useCart();
 
-  // ================= SAFE USER PARSE =================
+  // ── Safe user parse from localStorage ────────────────────
   const user = (() => {
-    try {
-      return JSON.parse(localStorage.getItem("user"));
-    } catch {
-      return null;
-    }
+    try { return JSON.parse(localStorage.getItem("user")); }
+    catch { return null; }
   })();
 
-  // ================= LOGOUT =================
+  // ── Logout: clear storage and redirect ───────────────────
   const handleLogout = () => {
     localStorage.clear();
     navigate("/login");
   };
 
-  // ================= NOTIFICATION =================
+  // ── Poll every 10s for approved payment notifications ────
   useEffect(() => {
     const checkNotification = async () => {
       try {
         const userId = localStorage.getItem("userId");
         if (!userId) return;
-
         const res = await api.get(`/api/orders/user/${userId}`);
-
         const newOrder = res.data.find(
-          (order) =>
-            order.status === "paid" &&
-            order.approved === true &&
-            order.notified === false
+          o => o.status === "paid" && o.approved === true && o.notified === false
         );
-
         if (newOrder) {
           toast.success("Payment Approved! Check your library");
           await api.post(`/api/orders/notify/${newOrder._id}`);
@@ -57,7 +47,6 @@ const Navbar = () => {
         console.error("Notification error:", err.message);
       }
     };
-
     checkNotification();
     const interval = setInterval(checkNotification, 10000);
     return () => clearInterval(interval);
@@ -66,9 +55,10 @@ const Navbar = () => {
   return (
     <div className="w-full shadow-sm">
 
-      {/* ================= TOP NAVBAR ================= */}
+      {/* ── TOP BAR: contact info + nav links ── */}
       <div className="bg-[#e6f2f6] text-sm px-6 py-2 flex justify-between items-center">
 
+        {/* Contact info (hidden on mobile) */}
         <div className="hidden md:flex gap-4 text-[#0e5a6f]">
           <span className="flex items-center gap-1">
             <FaPhoneAlt /> +880 1734-567890
@@ -78,6 +68,7 @@ const Navbar = () => {
           </span>
         </div>
 
+        {/* Nav links */}
         <div className="flex items-center gap-4 text-[#0e5a6f]">
           <NavLink to="/">Home</NavLink>
           <NavLink to="/shop">Shop</NavLink>
@@ -85,7 +76,7 @@ const Navbar = () => {
           <NavLink to="/help">Help</NavLink>
           <NavLink to="/refund-policy">Refund Policy</NavLink>
 
-          {/* ADMIN */}
+          {/* Admin link — only for admin role */}
           {user?.role === "admin" && (
             <NavLink to="/admin/orders" className="flex items-center gap-1">
               <FaCog /> Admin
@@ -94,18 +85,18 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* ================= MAIN NAV ================= */}
+      {/* ── MAIN NAV: logo + user controls + cart ── */}
       <div className="flex justify-between items-center px-6 py-4">
 
-        {/* LOGO */}
+        {/* Logo */}
         <NavLink to="/" className="flex items-center">
           <img src="/logo.svg" alt="ReadNOVA" className="h-12" />
         </NavLink>
 
-        {/* RIGHT SIDE */}
+        {/* Right side: auth + cart */}
         <div className="flex items-center gap-5 text-[#0e5a6f]">
 
-          {/* AUTH */}
+          {/* ── Guest: show Login / Register ── */}
           {!user ? (
             <>
               <NavLink to="/login">Login</NavLink>
@@ -113,7 +104,7 @@ const Navbar = () => {
             </>
           ) : (
             <>
-              {/* DASHBOARD LINK — avatar + name */}
+              {/* User dashboard pill: avatar + name */}
               <NavLink
                 to="/dashboard"
                 className={({ isActive }) =>
@@ -124,7 +115,7 @@ const Navbar = () => {
                   }`
                 }
               >
-                {/* avatar circle */}
+                {/* Avatar circle: first letter of name */}
                 <div className="w-6 h-6 rounded-full bg-[#0e5a6f] text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
                   {(user.name || user.email || "U")[0].toUpperCase()}
                 </div>
@@ -134,12 +125,12 @@ const Navbar = () => {
                 <FaTachometerAlt className="text-xs opacity-70" />
               </NavLink>
 
-              {/* MY LIBRARY */}
+              {/* My Library */}
               <NavLink to="/library" className="flex items-center gap-1">
                 <FaBook /> My Library
               </NavLink>
 
-              {/* LOGOUT */}
+              {/* Logout */}
               <button
                 onClick={handleLogout}
                 className="flex items-center gap-1 hover:text-red-500 transition-colors duration-200"
@@ -149,12 +140,26 @@ const Navbar = () => {
             </>
           )}
 
-          {/* CART */}
-          <NavLink to="/cart" className="relative">
-            <FaShoppingCart />
-            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-1.5 rounded-full">
-              {cart?.length || 0}
-            </span>
+          {/* ── Cart icon with item count badge ── */}
+          <NavLink to="/cart" className="relative flex items-center">
+
+            {/* Cart icon — size 22px, teal color */}
+            <FaShoppingCart
+              size={22}
+              className="text-[#0e5a6f] hover:text-[#0a4a5c] transition-colors duration-200"
+            />
+
+            {/* Count badge — red circle, top-right of icon */}
+            {(cart?.length || 0) > 0 && (
+              <span
+                className="absolute flex items-center justify-center
+                  bg-red-500 text-white font-bold rounded-full
+                  min-w-[18px] h-[18px] text-[10px] px-1
+                  -top-2 -right-2 shadow-sm"
+              >
+                {cart.length > 99 ? "99+" : cart.length}
+              </span>
+            )}
           </NavLink>
 
         </div>

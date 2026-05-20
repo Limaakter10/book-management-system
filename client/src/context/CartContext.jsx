@@ -1,45 +1,56 @@
 import { createContext, useContext, useState } from "react";
 
-// ================= CREATE CONTEXT =================
+// ── Create context ────────────────────────────────────────────
 const CartContext = createContext();
 
-// ================= PROVIDER =================
+// ── Provider ──────────────────────────────────────────────────
 export const CartProvider = ({ children }) => {
 
-  // 🔥 Load from localStorage first
+  // Load existing cart from localStorage on first render
   const [cart, setCart] = useState(
     JSON.parse(localStorage.getItem("cart")) || []
   );
 
-  // ================= ADD TO CART =================
+  // ── Add to cart ───────────────────────────────────────────
   const addToCart = (book) => {
     if (!book) return;
 
-    // ❌ prevent duplicate
+    // Prevent duplicate
     const exists = cart.some(item => item._id === book._id);
     if (exists) return;
 
-    const updated = [...cart, book];
+    // ✅ Explicitly pick fields + force discount to Number
+    // This ensures discount is always saved correctly
+    const cartItem = {
+      _id:        book._id,
+      title:      book.title,
+      author:     book.author,
+      price:      Number(book.price || 0),
+      discount:   Number(book.discount || 0), // ✅ "50" → 50
+      coverImage: book.coverImage,
+      pdfUrl:     book.pdfUrl,
+      category:   book.category,
+      subCategory: book.subCategory,
+    };
 
-    setCart(updated); // ✅ IMPORTANT (updates UI instantly)
-    localStorage.setItem("cart", JSON.stringify(updated));
-  };
-
-  // ================= REMOVE =================
-  const removeFromCart = (id) => {
-    const updated = cart.filter(item => item._id !== id);
-
+    const updated = [...cart, cartItem];
     setCart(updated);
     localStorage.setItem("cart", JSON.stringify(updated));
   };
 
-  // ================= CLEAR =================
+  // ── Remove from cart ──────────────────────────────────────
+  const removeFromCart = (id) => {
+    const updated = cart.filter(item => item._id !== id);
+    setCart(updated);
+    localStorage.setItem("cart", JSON.stringify(updated));
+  };
+
+  // ── Clear entire cart ─────────────────────────────────────
   const clearCart = () => {
     setCart([]);
     localStorage.removeItem("cart");
   };
 
-  // ================= RETURN =================
   return (
     <CartContext.Provider value={{ cart, addToCart, removeFromCart, clearCart }}>
       {children}
@@ -47,6 +58,5 @@ export const CartProvider = ({ children }) => {
   );
 };
 
-// ================= HOOK =================
-// ⚠️ ONLY ONE useCart (DO NOT DUPLICATE)
+// ── Hook ──────────────────────────────────────────────────────
 export const useCart = () => useContext(CartContext);
