@@ -412,10 +412,10 @@ export default function AdminDashboard() {
           <StatCard title="Avg Order"     value={`BDT ${fmt(avgOrder)}`}
             Icon={HiOutlineTrendingUp} color="#0891b2" bg="#ecfeff"
             sub="Per transaction" />
-          <StatCard title="Messages"      value={unreadMessages > 0 ? `${unreadMessages} new` : "0"}
+          {/* <StatCard title="Messages"      value={unreadMessages > 0 ? `${unreadMessages} new` : "0"}
             Icon={HiOutlineChat} color={unreadMessages > 0 ? "#dc2626" : "#64748b"}
             bg={unreadMessages > 0 ? "#fef2f2" : "#f8fafc"}
-            sub="Unread from users" />
+            sub="Unread from users" /> */}
         </div>
 
         {/* ── CHART + CATEGORIES ──────────────────────────── */}
