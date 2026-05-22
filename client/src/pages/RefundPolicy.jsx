@@ -99,7 +99,7 @@ const RefundPolicy = () => {
   );
 };
 
-// 🔥 REUSABLE SECTION
+//  REUSABLE SECTION
 const Section = ({ icon, title, items }) => (
   <div className="mb-6">
     <h2 className="text-xl font-semibold flex items-center gap-2 mb-2">

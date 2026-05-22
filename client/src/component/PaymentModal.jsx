@@ -1,4 +1,4 @@
-// 📁 PaymentModal.jsx
+//  PaymentModal.jsx
 
 import { useState } from "react";
 import BkashPayment from "../pages/BkashPayment";
@@ -6,7 +6,7 @@ import NagadPayment from "../pages/NagadPayment";
 
 const PaymentModal = ({ onClose }) => {
 
-  // 🔥 which method selected
+  //  which method selected
   const [method, setMethod] = useState("bkash");
 
   return (

@@ -44,7 +44,7 @@ const Hero = () => {
             </div>
           </div>
 
-        </div> {/* ✅ FIX: CLOSED LEFT DIV */}
+        </div> {/* FIX: CLOSED LEFT DIV */}
 
         {/* ================= RIGHT IMAGE ================= */}
         <div className="flex-1">

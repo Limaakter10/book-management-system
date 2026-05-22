@@ -46,7 +46,7 @@ const Advertisement = () => {
             className="bg-white rounded-xl shadow hover:shadow-2xl transition flex flex-col h-[300px]"
           >
 
-            {/* ✅ IMAGE FIX */}
+            {/*  IMAGE FIX */}
             <img
               src={
                 ad.image

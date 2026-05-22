@@ -12,7 +12,7 @@ const AdminMessages = () => {
       .catch(err => console.error(err));
   }, []);
 
-  // ✅ FIXED (API CALL ADDED)
+  //  FIXED (API CALL ADDED)
   const handleResolve = async (id) => {
     try {
       await api.put(`/api/messages/${id}/resolve`);

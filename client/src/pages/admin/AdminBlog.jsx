@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import api from "../../api/axios"; // ✅ axios instance use করো
+import api from "../../api/axios"; //  axios instance use করো
 import { FaPlus, FaTrash, FaEdit } from "react-icons/fa";
 
 const AdminBlog = () => {
 
   const [blogs, setBlogs] = useState([]);
 
-  // ✅ form state
+  //  form state
   const [form, setForm] = useState({
     title: "",
     content: "",
@@ -18,7 +18,7 @@ const AdminBlog = () => {
 
   // ================= LOAD BLOGS =================
   const fetchBlogs = () => {
-    api.get("/api/blogs") // ✅ localhost remove
+    api.get("/api/blogs") //  localhost remove
       .then(res => setBlogs(res.data))
       .catch(err => console.error(err));
   };
@@ -36,11 +36,11 @@ const AdminBlog = () => {
   const submit = async () => {
     try {
       if (editId) {
-        // ✅ UPDATE
+        //  UPDATE
         await api.put(`/api/blogs/${editId}`, form);
         alert("Updated ✅");
       } else {
-        // ✅ CREATE
+        //  CREATE
         await api.post("/api/blogs", form);
         alert("Created ✅");
       }

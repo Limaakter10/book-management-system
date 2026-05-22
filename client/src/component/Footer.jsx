@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
-// 🔥 React Icons (PROFESSIONAL)
+//  React Icons (PROFESSIONAL)
 import {
   FaFacebookF,
   FaTwitter,
@@ -16,7 +16,7 @@ const Footer = () => {
       {/* ================= TOP SECTION ================= */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-12">
 
-        {/* 🔥 RESPONSIVE GRID */}
+        {/*  RESPONSIVE GRID */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-10">
 
           {/* ================= LOGO ================= */}
@@ -30,7 +30,7 @@ const Footer = () => {
               stories, and knowledge from around the world.
             </p>
 
-            {/* 🔥 SOCIAL ICONS (FIXED) */}
+            {/*  SOCIAL ICONS (FIXED) */}
             <div className="flex gap-3 mt-5">
 
               <div className="bg-blue-600 p-2 rounded hover:scale-110 transition cursor-pointer">
@@ -83,7 +83,7 @@ const Footer = () => {
               Get latest updates and offers
             </p>
 
-            {/* 🔥 FIXED INPUT + BUTTON ALIGNMENT */}
+            {/*  FIXED INPUT + BUTTON ALIGNMENT */}
             <div className="flex w-full overflow-hidden rounded bg-blue-100">
 
               {/* INPUT */}
@@ -131,4 +131,4 @@ const Footer = () => {
   );
 };
 
-export default Footer;
+export default Footer; 

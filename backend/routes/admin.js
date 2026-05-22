@@ -1,6 +1,7 @@
 // ============================================================
 // 📄 backend/routes/admin.js
 // GET /api/admin/stats — full dashboard stats
+// Order model এ শুধু "paid" আর "failed" আছে — "pending" নেই
 // ============================================================
 
 const express = require("express");
@@ -16,39 +17,43 @@ router.get("/stats", async (req, res) => {
     const last7Days    = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     // ── basic counts ─────────────────────────────────────────
-    const totalUsers  = await User.countDocuments();
-    const totalBooks  = await Book.countDocuments().catch(() => 0);
-    const allOrders   = await Order.find({})
+    const totalUsers = await User.countDocuments();
+    const totalBooks = await Book.countDocuments().catch(() => 0);
+
+    const allOrders = await Order.find({})
       .populate("userId", "email name")
-      .populate("books.bookId", "title price category")
       .sort({ createdAt: -1 })
       .lean();
 
-    const totalOrders   = allOrders.length;
-    const paidOrders    = allOrders.filter(o => ["paid","approved"].includes(o.status)).length;
-    const pendingOrders = allOrders.filter(o => o.status === "pending").length;
+    const totalOrders = allOrders.length;
 
-    // ✅ শুধু paid/approved orders এর revenue — pending/failed বাদ
-    const totalRevenue  = allOrders
-      .filter(o => ["paid","approved"].includes(o.status))
+    // ✅ paid orders — "paid" শুধু (model এ "pending" নেই)
+    const paidOrders   = allOrders.filter(o => o.status === "paid").length;
+
+    // ✅ failed orders count
+    const failedOrders = allOrders.filter(o => o.status === "failed").length;
+
+    // ✅ শুধু paid orders এর revenue
+    const totalRevenue = allOrders
+      .filter(o => o.status === "paid")
       .reduce((s, o) => s + Number(o.amount || 0), 0);
 
     // ── monthly / weekly (paid only) ─────────────────────────
     const monthlyUsers = await User.countDocuments({ createdAt: { $gte: startOfMonth } });
 
     const monthlySales = allOrders
-      .filter(o => ["paid","approved"].includes(o.status) && new Date(o.createdAt) >= startOfMonth)
+      .filter(o => o.status === "paid" && new Date(o.createdAt) >= startOfMonth)
       .reduce((s, o) => s + Number(o.amount || 0), 0);
 
     const weeklySales = allOrders
-      .filter(o => ["paid","approved"].includes(o.status) && new Date(o.createdAt) >= last7Days)
+      .filter(o => o.status === "paid" && new Date(o.createdAt) >= last7Days)
       .reduce((s, o) => s + Number(o.amount || 0), 0);
 
     // ── monthly revenue map (paid only) ──────────────────────
     const monthNames     = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     const monthlyRevenue = {};
     allOrders
-      .filter(o => ["paid","approved"].includes(o.status))
+      .filter(o => o.status === "paid")
       .forEach(o => {
         const key = monthNames[new Date(o.createdAt).getMonth()];
         monthlyRevenue[key] = (monthlyRevenue[key] || 0) + Number(o.amount || 0);
@@ -66,11 +71,11 @@ router.get("/stats", async (req, res) => {
     // ── top books by revenue (paid only) ─────────────────────
     const bookMap = {};
     allOrders
-      .filter(o => ["paid","approved"].includes(o.status))
+      .filter(o => o.status === "paid")
       .forEach(o => {
         (o.books || []).forEach(b => {
-          const title = b.title || b.bookId?.title || "Unknown";
-          const price = Number(b.price || b.bookId?.price || 0);
+          const title = b.title || "Unknown";
+          const price = Number(b.price || 0);
           if (!bookMap[title]) bookMap[title] = { title, sales:0, revenue:0 };
           bookMap[title].sales++;
           bookMap[title].revenue += price;
@@ -94,18 +99,19 @@ router.get("/stats", async (req, res) => {
     // ── unread messages ───────────────────────────────────────
     let unreadMessages = 0;
     try {
-      const Message = require("../models/Message");
-      unreadMessages = await Message.countDocuments({ read: false });
+      const Message  = require("../models/Message");
+      unreadMessages = await Message.countDocuments({ isResolved: false });
     } catch (_) {}
 
     // ── respond ───────────────────────────────────────────────
     res.json({
       totalUsers,
       totalOrders,
-      totalRevenue,   // ✅ paid/approved only
+      totalRevenue,
       totalBooks,
-      pendingOrders,
       paidOrders,
+      failedOrders,
+      pendingOrders: 0,   // model এ pending নেই, 0 রাখা হয়েছে
       monthlySales,
       weeklySales,
       monthlyUsers,

@@ -57,11 +57,11 @@ const orderSchema = new mongoose.Schema({
   // ===============================
   // 📊 STATUS
   // ===============================
-  status: {
-    type: String,
-    enum: ["pending", "paid", "failed"],
-    default: "pending"
-  },
+ status: {
+  type: String,
+  enum: ["paid", "failed"], // ✅ only 2
+  default: "failed"         // ✅ default failed
+},
 
   // ===============================
   // 👨‍💼 ADMIN CONTROL

@@ -1,11 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import {
-  FaTachometerAlt,
-  FaBook,
-  FaUsers,
-  FaBox,
-  FaEnvelope,
-  FaSignOutAlt
+  FaTachometerAlt, FaBook, FaUsers,
+  FaBox, FaEnvelope, FaSignOutAlt, FaStar
 } from "react-icons/fa";
 
 const AdminSidebar = () => {
@@ -35,6 +31,13 @@ const AdminSidebar = () => {
           </Link>
         </li>
 
+        {/* ✅ Featured Books — notun */}
+        <li>
+          <Link to="/admin/featured" className="flex items-center gap-2 text-yellow-400">
+            <FaStar /> Featured Books
+          </Link>
+        </li>
+
         <li>
           <Link to="/admin/users" className="flex items-center gap-2">
             <FaUsers /> Users
@@ -54,16 +57,12 @@ const AdminSidebar = () => {
         </li>
 
         <li>
-          <button
-            onClick={logout}
-            className="flex items-center gap-2 text-red-400"
-          >
+          <button onClick={logout} className="flex items-center gap-2 text-red-400">
             <FaSignOutAlt /> Logout
           </button>
         </li>
 
       </ul>
-
     </div>
   );
 };

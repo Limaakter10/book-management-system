@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import api from "../../api/axios"; // ✅ FIX
+import api from "../../api/axios"; // FIX
 import { FaUsers, FaBookOpen } from "react-icons/fa";
 
 const AdminUsers = () => {
@@ -14,7 +14,7 @@ const AdminUsers = () => {
   // ================= FETCH USERS =================
   const fetchUsers = async () => {
     try {
-      const res = await api.get("/api/users/all"); // ✅ FIX
+      const res = await api.get("/api/users/all"); //  FIX
       setUsers(res.data);
     } catch (err) {
       console.error(err);
@@ -24,7 +24,7 @@ const AdminUsers = () => {
   // ================= FETCH USER LIBRARY =================
   const viewLibrary = async (userId) => {
     try {
-      const res = await api.get(`/api/users/library/${userId}`); // ✅ FIX
+      const res = await api.get(`/api/users/library/${userId}`); //  FIX
       setSelectedLibrary(res.data);
       setActiveUser(userId);
     } catch (err) {

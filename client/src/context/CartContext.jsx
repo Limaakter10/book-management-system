@@ -19,14 +19,14 @@ export const CartProvider = ({ children }) => {
     const exists = cart.some(item => item._id === book._id);
     if (exists) return;
 
-    // ✅ Explicitly pick fields + force discount to Number
+    //  Explicitly pick fields + force discount to Number
     // This ensures discount is always saved correctly
     const cartItem = {
       _id:        book._id,
       title:      book.title,
       author:     book.author,
       price:      Number(book.price || 0),
-      discount:   Number(book.discount || 0), // ✅ "50" → 50
+      discount:   Number(book.discount || 0), //  "50" → 50
       coverImage: book.coverImage,
       pdfUrl:     book.pdfUrl,
       category:   book.category,

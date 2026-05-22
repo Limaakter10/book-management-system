@@ -11,7 +11,7 @@ const AdminRoute = ({ children }) => {
     return <Navigate to="/" replace />;
   }
 
-  // ✅ admin হলে access allow
+  //  admin হলে access allow
   return children;
 };
 

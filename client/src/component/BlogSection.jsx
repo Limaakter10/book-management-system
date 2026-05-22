@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import api from "../api/axios"; // ✅ axios instance (baseURL already set)
+import api from "../api/axios"; //  axios instance (baseURL already set)
 import { Link } from "react-router-dom";
 import { FaBookOpen } from "react-icons/fa";
 
-// ✅ backend base URL (ONLY for local image fallback)
+//  backend base URL (ONLY for local image fallback)
 const BASE_URL = "https://book-management-system-ks6w.onrender.com";
 
 const BlogSection = () => {
@@ -13,11 +13,11 @@ const BlogSection = () => {
   // ================= FETCH BLOG =================
   useEffect(() => {
     api
-      .get("/api/blogs") // ✅ no localhost (production safe)
+      .get("/api/blogs") //  no localhost (production safe)
       .then((res) => {
         console.log("BLOGS:", res.data);
 
-        // 👉 show latest 3 blogs
+        //  show latest 3 blogs
         setBlogs(res.data.slice(0, 3));
       })
       .catch((err) => console.error(err));
@@ -45,8 +45,8 @@ const BlogSection = () => {
               src={
                 blog.image
                   ? blog.image.startsWith("http")
-                    ? blog.image // ✅ external image (unsplash)
-                    : `${BASE_URL}${blog.image}` // ✅ local backend image
+                    ? blog.image //  external image (unsplash)
+                    : `${BASE_URL}${blog.image}` //  local backend image
                   : "https://via.placeholder.com/300"
               }
               alt={blog.title}

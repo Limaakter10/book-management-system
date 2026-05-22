@@ -12,8 +12,7 @@ const bookSchema = new mongoose.Schema({
   coverImage: String,
   pdfUrl: String,
 
-  rating: Number,
-  numReviews: Number,
+ 
 
   isFeatured: Boolean,
   isActive: Boolean,

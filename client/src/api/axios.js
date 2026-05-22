@@ -1,11 +1,21 @@
 import axios from "axios";
 
-// ─── Development এ localhost, Production এ render.com ───────
-// Vite এ import.meta.env.DEV → local এ true, build এ false
 const baseURL = import.meta.env.DEV
-  ? "http://localhost:3000"                              // local dev
-  : "https://book-management-system-ks6w.onrender.com"; // production
+  ? "http://localhost:3000"
+  : "https://book-management-system-ks6w.onrender.com";
 
 const api = axios.create({ baseURL });
+
+// ✅ প্রতিটি request এ automatically token add হবে
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 export default api;
