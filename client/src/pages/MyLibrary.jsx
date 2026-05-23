@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { HiOutlineSearch, HiOutlineBookOpen } from "react-icons/hi";
 
 // ✅ NEW IMPORT
-import ReviewModal from "../component/ReviewModal";
+import ReviewModal from "../component/ReviewModal.jsx";
 
 const BASE_URL = "https://book-management-system-ks6w.onrender.com";
 
