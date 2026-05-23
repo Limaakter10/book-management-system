@@ -6,18 +6,15 @@ import {
   HiOutlineBookOpen, HiOutlineClipboardList, HiOutlineTrendingUp,
   HiOutlineCheckCircle, HiOutlineClock, HiOutlineChat,
   HiOutlinePlus, HiOutlineDownload, HiOutlineRefresh,
-  HiOutlineDocumentReport,
+  HiOutlineDocumentReport, HiOutlineExclamationCircle,
 } from "react-icons/hi";
 
-// ── Format number — max 2 decimal places, trailing zeros removed ──────────────
 const fmt = (n) => {
   const num = Number(n ?? 0);
-  // round to 2 decimals, then remove unnecessary trailing zeros
-  const rounded = Math.round(num * 100) / 100;
   return new Intl.NumberFormat("en-BD", {
     minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(rounded);
+    maximumFractionDigits: 0,
+  }).format(Math.round(num));
 };
 
 const greeting = () => {
@@ -196,38 +193,41 @@ export default function AdminDashboard() {
   useEffect(() => {
     setLoading(true);
     api.get("/api/admin/stats")
-      .then(res => setStats(res.data.stats || res.data))
+      .then(res => setStats(res.data))
       .catch(() => setStats({
         totalUsers:0, totalOrders:0, totalRevenue:0, totalBooks:0,
-        pendingOrders:0, weeklySales:0, monthlyUsers:0, paidOrders:0,
-        monthlyRevenue:{}, recentOrders:[], topBooks:[], categoryStats:[],
-        totalMessages:0, unreadMessages:0,
+        paidOrders:0, failedOrders:0, weeklySales:0, monthlySales:0,
+        monthlyUsers:0, monthlyRevenue:{}, recentOrders:[],
+        topBooks:[], categoryStats:[], unreadMessages:0,
       }))
       .finally(() => setLoading(false));
   }, [refresh]);
 
   if (loading) return <Spinner />;
 
-  // ── derived values ──────────────────────────────────────────────────────────
+  // ── ✅ backend field names এর সাথে মিলিয়ে নেওয়া ──────────────────────────
   const totalRevenue   = stats?.totalRevenue   || 0;
   const totalOrders    = stats?.totalOrders    || 0;
   const totalUsers     = stats?.totalUsers     || 0;
   const totalBooks     = stats?.totalBooks     || 0;
-  const pendingOrders  = stats?.pendingOrders  || 0;
-  const weeklySales    = stats?.weeklySales    || 0;
-  const monthlyUsers   = stats?.monthlyUsers   || 0;
   const paidOrders     = stats?.paidOrders     || 0;
   const failedOrders   = stats?.failedOrders   || 0;
+  const weeklySales    = stats?.weeklySales    || 0;
+  const monthlySales   = stats?.monthlySales   || 0;
+  const monthlyUsers   = stats?.monthlyUsers   || 0;
   const unreadMessages = stats?.unreadMessages || 0;
 
-  const avgOrder = totalOrders > 0
-    ? Math.round(totalRevenue / totalOrders) : 0;
+  const avgOrder = paidOrders > 0
+    ? Math.round(totalRevenue / paidOrders) : 0;
+
   const convRate = totalOrders > 0
     ? ((paidOrders / totalOrders) * 100).toFixed(1) : "0.0";
 
-  const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  const chartData  = Object.entries(stats?.monthlyRevenue || {})
+  // ── chart data ─────────────────────────────────────────────────────────────
+  const chartData = Object.entries(stats?.monthlyRevenue || {})
     .map(([label, value]) => ({ label, value: Math.round(value) }));
+
+  const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const finalChart = chartData.length > 0
     ? chartData
     : monthNames.slice(0,7).map(m => ({ label:m, value:0 }));
@@ -236,20 +236,22 @@ export default function AdminDashboard() {
   const topBooks     = stats?.topBooks      || [];
   const categories   = stats?.categoryStats || [];
 
+  // ── CSV download ───────────────────────────────────────────────────────────
   const downloadReport = () => {
     const rows = [
       ["ReadNOVA Admin Report", new Date().toLocaleString("en-BD")], [],
       ["Metric","Value"],
-      ["Total Users",     totalUsers],
-      ["Total Orders",    totalOrders],
-      ["Total Revenue",   `BDT ${fmt(totalRevenue)}`],
-      ["Total Books",     totalBooks],
-      ["Pending Orders",  pendingOrders],
-      ["Paid Orders",     paidOrders],
-      ["Weekly Sales",    `BDT ${fmt(weeklySales)}`],
-      ["Avg Order Value", `BDT ${fmt(avgOrder)}`],
-      ["Conversion Rate", `${convRate}%`],
-      ["Unread Messages", unreadMessages],
+      ["Total Users",      totalUsers],
+      ["Total Orders",     totalOrders],
+      ["Paid Orders",      paidOrders],
+      ["Failed Orders",    failedOrders],
+      ["Total Revenue",    `BDT ${fmt(totalRevenue)}`],
+      ["Total Books",      totalBooks],
+      ["Weekly Sales",     `BDT ${fmt(weeklySales)}`],
+      ["Monthly Sales",    `BDT ${fmt(monthlySales)}`],
+      ["Avg Order Value",  `BDT ${fmt(avgOrder)}`],
+      ["Conversion Rate",  `${convRate}%`],
+      ["Unread Messages",  unreadMessages],
     ];
     const csv  = rows.map(r => r.join(",")).join("\n");
     const blob = new Blob([csv], { type:"text/csv" });
@@ -317,64 +319,103 @@ export default function AdminDashboard() {
       <div style={{ padding:"28px 32px" }}>
 
         {/* ── STAT CARDS ──────────────────────────────────────────────────── */}
-        <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",
-                      gap:16,marginBottom:24 }}>
-          <StatCard title="Total Users"   value={fmt(totalUsers)}
+        <div style={{ display:"grid",
+                      gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",
+                      gap:16, marginBottom:24 }}>
+          <StatCard
+            title="Total Users" value={fmt(totalUsers)}
             Icon={HiOutlineUsers} color="#1a6b7c" bg="#e6f7f9"
-            sub={`+${monthlyUsers} this month`} />
-          <StatCard title="Total Orders"  value={fmt(totalOrders)}
+            sub={`+${monthlyUsers} this month`}
+          />
+          <StatCard
+            title="Total Orders" value={fmt(totalOrders)}
             Icon={HiOutlineShoppingBag} color="#7c3aed" bg="#f3f0ff"
-            sub={`${paidOrders} paid · ${failedOrders} failed`} />
-          <StatCard title="Total Revenue" value={`BDT ${fmt(totalRevenue)}`}
+            sub={`${paidOrders} paid · ${failedOrders} failed`}
+          />
+          <StatCard
+            title="Total Revenue" value={`BDT ${fmt(totalRevenue)}`}
             Icon={HiOutlineCurrencyBangladeshi} color="#059669" bg="#ecfdf5"
-            sub={`BDT ${fmt(weeklySales)} this week`} />
-          <StatCard title="Total Books"   value={fmt(totalBooks)}
+            sub={`BDT ${fmt(weeklySales)} this week`}
+          />
+          <StatCard
+            title="Total Books" value={fmt(totalBooks)}
             Icon={HiOutlineBookOpen} color="#f5a623" bg="#fffbeb"
-            sub="In catalogue" />
-          <StatCard title="Paid Orders"   value={fmt(paidOrders)}
+            sub="In catalogue"
+          />
+          <StatCard
+            title="Paid Orders" value={fmt(paidOrders)}
             Icon={HiOutlineCheckCircle} color="#16a34a" bg="#f0fdf4"
-            sub={`${convRate}% conversion`} />
-          <StatCard title="Failed Orders" value={fmt(failedOrders)}
-            Icon={HiOutlineClock} color="#dc2626" bg="#fef2f2"
-            sub="Payment failed" />
-          <StatCard title="Avg Order"     value={`BDT ${fmt(avgOrder)}`}
+            sub={`${convRate}% conversion rate`}
+          />
+          <StatCard
+            title="Failed Orders" value={fmt(failedOrders)}
+            Icon={HiOutlineExclamationCircle} color="#dc2626" bg="#fef2f2"
+            sub="Payment failed"
+          />
+          <StatCard
+            title="Avg Order Value" value={`BDT ${fmt(avgOrder)}`}
             Icon={HiOutlineTrendingUp} color="#0891b2" bg="#ecfeff"
-            sub="Per transaction" />
+            sub="Per paid transaction"
+          />
+          <StatCard
+            title="Monthly Sales" value={`BDT ${fmt(monthlySales)}`}
+            Icon={HiOutlineClock} color="#7c3aed" bg="#f3f0ff"
+            sub="This month (paid)"
+          />
+          <StatCard
+            title="Unread Messages" value={fmt(unreadMessages)}
+            Icon={HiOutlineChat} color="#dc2626" bg="#fef2f2"
+            sub="Needs attention"
+          />
         </div>
 
         {/* ── CHART + CATEGORIES ──────────────────────────────────────────── */}
-        <div style={{ display:"grid",gridTemplateColumns:"1fr 300px",gap:20,marginBottom:24 }}>
+        <div style={{ display:"grid",gridTemplateColumns:"1fr 300px",
+                      gap:20, marginBottom:24 }}>
 
           <div style={{ background:"#fff",borderRadius:14,padding:"22px 24px",
-                        border:"1px solid #e2e8f0",boxShadow:"0 2px 10px rgba(26,107,124,0.06)" }}>
+                        border:"1px solid #e2e8f0",
+                        boxShadow:"0 2px 10px rgba(26,107,124,0.06)" }}>
             <h3 style={{ fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,
-                          color:"#1a1a1a",marginBottom:16,display:"flex",alignItems:"center",gap:8 }}>
-              <HiOutlineDocumentReport style={{color:"#1a6b7c",fontSize:18}}/> Monthly Revenue (BDT)
+                          color:"#1a1a1a",marginBottom:16,
+                          display:"flex",alignItems:"center",gap:8 }}>
+              <HiOutlineDocumentReport style={{color:"#1a6b7c",fontSize:18}}/>
+              Monthly Revenue (BDT)
             </h3>
             <BarChart data={finalChart}/>
           </div>
 
           <div style={{ background:"#fff",borderRadius:14,padding:"22px 24px",
-                        border:"1px solid #e2e8f0",boxShadow:"0 2px 10px rgba(26,107,124,0.06)" }}>
+                        border:"1px solid #e2e8f0",
+                        boxShadow:"0 2px 10px rgba(26,107,124,0.06)" }}>
             <h3 style={{ fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,
-                          color:"#1a1a1a",marginBottom:16,display:"flex",alignItems:"center",gap:8 }}>
-              <HiOutlineBookOpen style={{color:"#f5a623",fontSize:18}}/> Books by Category
+                          color:"#1a1a1a",marginBottom:16,
+                          display:"flex",alignItems:"center",gap:8 }}>
+              <HiOutlineBookOpen style={{color:"#f5a623",fontSize:18}}/>
+              Books by Category
             </h3>
             {categories.length === 0
-              ? <p style={{color:"#9ca3af",fontSize:13,textAlign:"center",padding:"20px 0"}}>No category data yet</p>
+              ? <p style={{color:"#9ca3af",fontSize:13,textAlign:"center",padding:"20px 0"}}>
+                  No category data yet
+                </p>
               : categories.map((cat,i) => {
-                  const maxC=Math.max(...categories.map(c=>c.count),1);
-                  const pct=Math.round((cat.count/maxC)*100);
-                  const cols=["#1a6b7c","#f5a623","#10b981","#7c3aed","#e94560","#3b82f6"];
-                  const col=cols[i%cols.length];
+                  const maxC = Math.max(...categories.map(c=>c.count), 1);
+                  const pct  = Math.round((cat.count/maxC)*100);
+                  const cols = ["#1a6b7c","#f5a623","#10b981","#7c3aed","#e94560","#3b82f6"];
+                  const col  = cols[i%cols.length];
                   return (
                     <div key={cat._id} style={{marginBottom:14}}>
-                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:5,fontSize:12}}>
-                        <span style={{fontWeight:600,color:"#374151"}}>{cat._id||"General"}</span>
+                      <div style={{display:"flex",justifyContent:"space-between",
+                                   marginBottom:5,fontSize:12}}>
+                        <span style={{fontWeight:600,color:"#374151"}}>
+                          {cat._id||"General"}
+                        </span>
                         <span style={{color:col,fontWeight:700}}>{cat.count}</span>
                       </div>
-                      <div style={{height:6,background:"#f1f5f9",borderRadius:10,overflow:"hidden"}}>
-                        <div style={{height:"100%",width:`${pct}%`,background:col,borderRadius:10,transition:"width 0.6s ease"}}/>
+                      <div style={{height:6,background:"#f1f5f9",
+                                   borderRadius:10,overflow:"hidden"}}>
+                        <div style={{height:"100%",width:`${pct}%`,background:col,
+                                     borderRadius:10,transition:"width 0.6s ease"}}/>
                       </div>
                     </div>
                   );
@@ -384,30 +425,39 @@ export default function AdminDashboard() {
         </div>
 
         {/* ── RECENT ORDERS + TOP BOOKS ───────────────────────────────────── */}
-        <div style={{ display:"grid",gridTemplateColumns:"1fr 300px",gap:20,marginBottom:24 }}>
+        <div style={{ display:"grid",gridTemplateColumns:"1fr 300px",
+                      gap:20, marginBottom:24 }}>
 
           <div style={{ background:"#fff",borderRadius:14,padding:"22px 24px",
-                        border:"1px solid #e2e8f0",boxShadow:"0 2px 10px rgba(26,107,124,0.06)" }}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                        border:"1px solid #e2e8f0",
+                        boxShadow:"0 2px 10px rgba(26,107,124,0.06)" }}>
+            <div style={{display:"flex",justifyContent:"space-between",
+                         alignItems:"center",marginBottom:16}}>
               <h3 style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,
                            color:"#1a1a1a",display:"flex",alignItems:"center",gap:8}}>
-                <HiOutlineClipboardList style={{color:"#7c3aed",fontSize:18}}/> Recent Orders
+                <HiOutlineClipboardList style={{color:"#7c3aed",fontSize:18}}/>
+                Recent Orders
               </h3>
-              <Link to="/admin/orders" style={{fontSize:12,color:"#1a6b7c",fontWeight:600,textDecoration:"none"}}>
+              <Link to="/admin/orders"
+                style={{fontSize:12,color:"#1a6b7c",fontWeight:600,textDecoration:"none"}}>
                 View all →
               </Link>
             </div>
             {recentOrders.length === 0
-              ? <p style={{color:"#9ca3af",fontSize:13,textAlign:"center",padding:"20px 0"}}>No orders yet</p>
+              ? <p style={{color:"#9ca3af",fontSize:13,textAlign:"center",
+                           padding:"20px 0"}}>No orders yet</p>
               : recentOrders.slice(0,6).map(o => {
-                  const sc={paid:"#16a34a",approved:"#16a34a",pending:"#ca8a04",failed:"#dc2626"}[o.status]||"#64748b";
+                  const sc = o.status === "paid" ? "#16a34a" : "#dc2626";
                   return (
-                    <div key={o._id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",
-                                              padding:"10px 0",borderBottom:"1px solid #f1f5f9",gap:8}}>
+                    <div key={o._id}
+                      style={{display:"flex",alignItems:"center",
+                               justifyContent:"space-between",
+                               padding:"10px 0",borderBottom:"1px solid #f1f5f9",gap:8}}>
                       <div style={{flex:1,minWidth:0}}>
                         <p style={{fontSize:13,fontWeight:600,color:"#0f172a",
-                                   overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                          {o.userId?.email||o.userId||"—"}
+                                   overflow:"hidden",textOverflow:"ellipsis",
+                                   whiteSpace:"nowrap"}}>
+                          {o.userId?.email || o.userId?.name || "—"}
                         </p>
                         <p style={{fontSize:11,color:"#94a3b8",marginTop:1}}>
                           #{(o._id||"").slice(-8).toUpperCase()}
@@ -418,7 +468,8 @@ export default function AdminDashboard() {
                           BDT {fmt(o.amount)}
                         </p>
                         <span style={{fontSize:10,fontWeight:600,color:sc,
-                                       background:`${sc}14`,padding:"2px 8px",borderRadius:20}}>
+                                       background:`${sc}14`,padding:"2px 8px",
+                                       borderRadius:20}}>
                           {(o.status||"").toUpperCase()}
                         </span>
                       </div>
@@ -429,16 +480,21 @@ export default function AdminDashboard() {
           </div>
 
           <div style={{ background:"#fff",borderRadius:14,padding:"22px 24px",
-                        border:"1px solid #e2e8f0",boxShadow:"0 2px 10px rgba(26,107,124,0.06)" }}>
+                        border:"1px solid #e2e8f0",
+                        boxShadow:"0 2px 10px rgba(26,107,124,0.06)" }}>
             <h3 style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,
-                         color:"#1a1a1a",marginBottom:16,display:"flex",alignItems:"center",gap:8}}>
-              <HiOutlineTrendingUp style={{color:"#059669",fontSize:18}}/> Top Books
+                         color:"#1a1a1a",marginBottom:16,
+                         display:"flex",alignItems:"center",gap:8}}>
+              <HiOutlineTrendingUp style={{color:"#059669",fontSize:18}}/>
+              Top Books
             </h3>
             {topBooks.length === 0
-              ? <p style={{color:"#9ca3af",fontSize:13,textAlign:"center",padding:"20px 0"}}>No data yet</p>
+              ? <p style={{color:"#9ca3af",fontSize:13,textAlign:"center",
+                           padding:"20px 0"}}>No data yet</p>
               : topBooks.slice(0,6).map((b,i) => (
-                  <div key={b._id||i} style={{display:"flex",alignItems:"center",gap:12,
-                                               padding:"8px 0",borderBottom:"1px solid #f1f5f9"}}>
+                  <div key={b._id||i}
+                    style={{display:"flex",alignItems:"center",gap:12,
+                             padding:"8px 0",borderBottom:"1px solid #f1f5f9"}}>
                     <div style={{width:28,height:28,borderRadius:8,background:"#e6f7f9",
                                   display:"flex",alignItems:"center",justifyContent:"center",
                                   fontSize:12,fontWeight:800,color:"#1a6b7c",flexShrink:0}}>
@@ -446,10 +502,11 @@ export default function AdminDashboard() {
                     </div>
                     <div style={{flex:1,minWidth:0}}>
                       <p style={{fontSize:13,fontWeight:600,color:"#0f172a",
-                                  overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                                  overflow:"hidden",textOverflow:"ellipsis",
+                                  whiteSpace:"nowrap"}}>
                         {b.title||"—"}
                       </p>
-                      <p style={{fontSize:11,color:"#94a3b8"}}>{b.sales||b.count||0} sales</p>
+                      <p style={{fontSize:11,color:"#94a3b8"}}>{b.sales||0} sales</p>
                     </div>
                     <span style={{fontSize:13,fontWeight:700,color:"#1a6b7c",flexShrink:0}}>
                       BDT {fmt(b.revenue||0)}
@@ -462,19 +519,23 @@ export default function AdminDashboard() {
 
         {/* ── QUICK ACTIONS ───────────────────────────────────────────────── */}
         <div style={{ background:"#fff",borderRadius:14,padding:"22px 24px",
-                      border:"1px solid #e2e8f0",boxShadow:"0 2px 10px rgba(26,107,124,0.06)" }}>
+                      border:"1px solid #e2e8f0",
+                      boxShadow:"0 2px 10px rgba(26,107,124,0.06)" }}>
           <h3 style={{fontFamily:"Georgia,serif",fontSize:15,fontWeight:700,
-                       color:"#1a1a1a",marginBottom:16,display:"flex",alignItems:"center",gap:8}}>
+                       color:"#1a1a1a",marginBottom:16,
+                       display:"flex",alignItems:"center",gap:8}}>
             ⚡ Quick Actions
           </h3>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:14}}>
-            <ActionCard Icon={HiOutlinePlus}        label="Add New Book"   to="/admin/books"     color="#1a6b7c"/>
-            <ActionCard Icon={HiOutlineUsers}       label="Manage Users"   to="/admin/users"     color="#7c3aed"/>
-            <ActionCard Icon={HiOutlineShoppingBag} label="View Orders"    to="/admin/orders"    color="#059669"/>
-            <ActionCard Icon={HiOutlineChat}        label="Messages"       to="/admin/messages"  color="#dc2626"/>
-            <ActionCard Icon={HiOutlineBookOpen}    label="Manage Books"   to="/admin/books"     color="#f5a623"/>
-            <ActionCard Icon={HiOutlineTrendingUp}  label="Featured Books" to="/admin/featured"  color="#7c3aed"/>
-            <ActionCard Icon={HiOutlineDownload}    label="Download CSV"   onClick={downloadReport} color="#0891b2"/>
+          <div style={{display:"grid",
+                       gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",
+                       gap:14}}>
+            <ActionCard Icon={HiOutlinePlus}        label="Add New Book"    to="/admin/books"    color="#1a6b7c"/>
+            <ActionCard Icon={HiOutlineUsers}       label="Manage Users"    to="/admin/users"    color="#7c3aed"/>
+            <ActionCard Icon={HiOutlineShoppingBag} label="View Orders"     to="/admin/orders"   color="#059669"/>
+            <ActionCard Icon={HiOutlineChat}        label="Messages"        to="/admin/messages" color="#dc2626"/>
+            <ActionCard Icon={HiOutlineBookOpen}    label="Manage Books"    to="/admin/books"    color="#f5a623"/>
+            <ActionCard Icon={HiOutlineTrendingUp}  label="Featured Books"  to="/admin/featured" color="#7c3aed"/>
+            <ActionCard Icon={HiOutlineDownload}    label="Download CSV"    onClick={downloadReport} color="#0891b2"/>
           </div>
         </div>
 

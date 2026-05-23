@@ -2,6 +2,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useState, useEffect } from "react";
 import api from "../api/axios";
 import { FaStar } from "react-icons/fa";
+import { useCart } from "../context/CartContext"; // ✅ CartContext import
 
 const BASE_URL = import.meta.env.DEV
   ? "http://localhost:3000"
@@ -10,7 +11,10 @@ const BASE_URL = import.meta.env.DEV
 const BookDetails = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { id }   = useParams();
+
+  // ✅ CartContext থেকে addToCart নেওয়া
+  const { addToCart } = useCart();
 
   const [book,          setBook]          = useState(location.state || null);
   const [bookLoading,   setBookLoading]   = useState(!location.state);
@@ -19,12 +23,12 @@ const BookDetails = () => {
   const [totalReviews,  setTotalReviews]  = useState(0);
   const [reviewLoading, setReviewLoading] = useState(true);
   const [showAll,       setShowAll]       = useState(false);
+  const [adding,        setAdding]        = useState(false); // ✅ loading state
 
-  // ── location.state না থাকলে API থেকে fetch করো ──
+  // location.state না থাকলে API থেকে fetch
   useEffect(() => {
     if (location.state) return;
     if (!id) return;
-
     const fetchBook = async () => {
       try {
         setBookLoading(true);
@@ -36,14 +40,12 @@ const BookDetails = () => {
         setBookLoading(false);
       }
     };
-
     fetchBook();
   }, [id, location.state]);
 
-  // ── Reviews fetch ──
+  // Reviews fetch
   useEffect(() => {
     if (!book?._id) return;
-
     const fetchReviews = async () => {
       try {
         setReviewLoading(true);
@@ -57,61 +59,50 @@ const BookDetails = () => {
         setReviewLoading(false);
       }
     };
-
     fetchReviews();
   }, [book?._id]);
 
-  // ── Loading state ──
-  if (bookLoading) {
-    return (
-      <div style={{ textAlign: "center", padding: "60px 16px", color: "#94a3b8" }}>
-        Loading book details...
-      </div>
-    );
-  }
+  if (bookLoading) return (
+    <div style={{ textAlign: "center", padding: "60px 16px", color: "#94a3b8" }}>
+      Loading book details...
+    </div>
+  );
 
-  if (!book) {
-    return (
-      <div style={{ textAlign: "center", padding: "60px 16px" }}>
-        <p style={{ fontSize: "1.2rem", color: "#ef4444" }}>❌ Book not found</p>
-        <button
-          onClick={() => navigate("/shop")}
-          style={{ marginTop: 16, padding: "10px 24px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}
-        >
-          Go to Shop
-        </button>
-      </div>
-    );
-  }
+  if (!book) return (
+    <div style={{ textAlign: "center", padding: "60px 16px" }}>
+      <p style={{ fontSize: "1.2rem", color: "#ef4444" }}>❌ Book not found</p>
+      <button onClick={() => navigate("/shop")}
+        style={{ marginTop: 16, padding: "10px 24px", background: "#2563eb", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>
+        Go to Shop
+      </button>
+    </div>
+  );
 
-  // ── Add to cart ──
-  const handleAddToCart = () => {
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (!user) {
-      alert("Please login first ❌");
+  // ✅ CartContext এর addToCart use করা — refresh ছাড়াই cart update হবে
+  const handleAddToCart = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
       navigate("/login");
       return;
     }
-    const cart = JSON.parse(localStorage.getItem("cart")) || [];
-    const already = cart.find((b) => b._id === book._id);
-    if (already) {
-      alert("Already in cart ⚠️");
-      return;
+
+    try {
+      setAdding(true);
+      await addToCart(book); // ✅ Context এর function — state automatically update হবে
+      navigate("/cart");
+    } catch (err) {
+      console.error("Add to cart error:", err);
+      alert("Error adding to cart");
+    } finally {
+      setAdding(false);
     }
-    cart.push(book);
-    localStorage.setItem("cart", JSON.stringify(cart));
-    alert("Added to cart ✅");
-    navigate("/cart");
   };
 
   const formatDate = (d) =>
-    new Date(d).toLocaleDateString("en-US", {
-      year: "numeric", month: "short", day: "numeric",
-    });
+    new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 
   const visibleReviews = showAll ? reviews : reviews.slice(0, 3);
 
-  // ── Discounted price ──
   const originalPrice   = Number(book.price || 0);
   const discountPercent = Number(book.discount || 0);
   const discountedPrice = discountPercent > 0
@@ -121,33 +112,33 @@ const BookDetails = () => {
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "24px 16px", fontFamily: "inherit" }}>
 
-      {/* ── Book Cover ── */}
+      {/* Cover */}
       <img
-        src={book.coverImage ? `${BASE_URL}${book.coverImage}` : "https://via.placeholder.com/200"}
+        src={book.coverImage
+          ? book.coverImage.startsWith("http") ? book.coverImage : `${BASE_URL}${book.coverImage}`
+          : "https://via.placeholder.com/200"}
         alt={book.title}
         style={{ height: 240, borderRadius: 12, marginBottom: 16, objectFit: "cover", boxShadow: "0 4px 16px rgba(0,0,0,0.12)" }}
       />
 
-      {/* ── Title ── */}
+      {/* Title */}
       <h1 style={{ fontSize: "1.6rem", fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>
         {book.title}
       </h1>
 
-      {/* ── Author ── */}
+      {/* Author */}
       {book.author && (
-        <p style={{ color: "#64748b", marginBottom: 8, fontSize: "0.95rem" }}>
-          by {book.author}
-        </p>
+        <p style={{ color: "#64748b", marginBottom: 8, fontSize: "0.95rem" }}>by {book.author}</p>
       )}
 
-      {/* ── Quick Rating Summary ── */}
+      {/* Rating summary */}
       {totalReviews > 0 && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
           {[1,2,3,4,5].map(s => (
             <FaStar key={s} size={14} color={s <= Math.round(averageRating) ? "#f59e0b" : "#e2e8f0"} />
           ))}
           <span style={{ fontWeight: 700, color: "#f59e0b", fontSize: "0.95rem" }}>
-            {averageRating}
+            {Number(averageRating).toFixed(1)}
           </span>
           <span style={{ color: "#94a3b8", fontSize: "0.85rem" }}>
             ({totalReviews} {totalReviews === 1 ? "review" : "reviews"})
@@ -155,67 +146,54 @@ const BookDetails = () => {
         </div>
       )}
 
-      {/* ── Description ── */}
+      {/* Description */}
       <p style={{ color: "#475569", lineHeight: 1.7, marginBottom: 16 }}>
         {book.description || "No description available"}
       </p>
 
-      {/* ── Price ── */}
+      {/* Price */}
       <div style={{ marginBottom: 16 }}>
         {discountPercent > 0 ? (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontWeight: 700, color: "#2563eb", fontSize: "1.3rem" }}>
-              ৳ {discountedPrice}
-            </span>
-            <span style={{ color: "#94a3b8", textDecoration: "line-through", fontSize: "1rem" }}>
-              ৳ {originalPrice}
-            </span>
+            <span style={{ fontWeight: 700, color: "#2563eb", fontSize: "1.3rem" }}>৳ {discountedPrice}</span>
+            <span style={{ color: "#94a3b8", textDecoration: "line-through", fontSize: "1rem" }}>৳ {originalPrice}</span>
             <span style={{ background: "#dcfce7", color: "#16a34a", borderRadius: 6, padding: "2px 8px", fontSize: "0.8rem", fontWeight: 600 }}>
               -{discountPercent}%
             </span>
           </div>
         ) : (
-          <span style={{ fontWeight: 700, color: "#2563eb", fontSize: "1.3rem" }}>
-            ৳ {originalPrice}
-          </span>
+          <span style={{ fontWeight: 700, color: "#2563eb", fontSize: "1.3rem" }}>৳ {originalPrice}</span>
         )}
       </div>
 
-      {/* ── Add to Cart Button ── */}
+      {/* ✅ Add to Cart Button — CartContext use করছে */}
       <button
         onClick={handleAddToCart}
+        disabled={adding}
         style={{
           padding: "12px 28px",
-          backgroundColor: "#16a34a",
-          color: "#fff",
-          border: "none",
-          borderRadius: 10,
-          fontSize: "1rem",
-          fontWeight: 600,
-          cursor: "pointer",
+          backgroundColor: adding ? "#86efac" : "#16a34a",
+          color: "#fff", border: "none", borderRadius: 10,
+          fontSize: "1rem", fontWeight: 600,
+          cursor: adding ? "not-allowed" : "pointer",
           marginBottom: 36,
+          display: "flex", alignItems: "center", gap: 8,
         }}
       >
-        🛒 Add to Cart
+        {adding ? "Adding..." : "🛒 Add to Cart"}
       </button>
 
-      {/* ── REVIEW SECTION ── */}
+      {/* Review Section */}
       <div style={{ borderTop: "2px solid #f1f5f9", paddingTop: 28 }}>
 
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <h2 style={{ fontSize: "1.2rem", fontWeight: 700, color: "#0f172a", margin: 0 }}>
             ⭐ Customer Reviews
           </h2>
-
           {totalReviews > 0 && (
-            <div style={{
-              display: "flex", alignItems: "center", gap: 10,
-              backgroundColor: "#fffbeb",
-              border: "1px solid #fde68a",
-              borderRadius: 10, padding: "8px 16px",
-            }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, backgroundColor: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, padding: "8px 16px" }}>
               <span style={{ fontSize: "1.8rem", fontWeight: 800, color: "#d97706" }}>
-                {averageRating}
+                {Number(averageRating).toFixed(1)}
               </span>
               <div>
                 <div style={{ display: "flex", gap: 2 }}>
@@ -232,51 +210,24 @@ const BookDetails = () => {
         </div>
 
         {reviewLoading && (
-          <div style={{ textAlign: "center", padding: "32px 0", color: "#94a3b8" }}>
-            Loading reviews...
-          </div>
+          <div style={{ textAlign: "center", padding: "32px 0", color: "#94a3b8" }}>Loading reviews...</div>
         )}
 
         {!reviewLoading && reviews.length === 0 && (
-          <div style={{
-            textAlign: "center", padding: "40px 20px",
-            backgroundColor: "#f8fafc", borderRadius: 12,
-            border: "1px dashed #e2e8f0",
-          }}>
+          <div style={{ textAlign: "center", padding: "40px 20px", backgroundColor: "#f8fafc", borderRadius: 12, border: "1px dashed #e2e8f0" }}>
             <p style={{ fontSize: "2rem", marginBottom: 8 }}>📭</p>
             <p style={{ color: "#64748b", fontWeight: 600 }}>No reviews yet</p>
-            <p style={{ color: "#94a3b8", fontSize: "0.85rem", marginTop: 4 }}>
-              Buy this book and be the first to review!
-            </p>
+            <p style={{ color: "#94a3b8", fontSize: "0.85rem", marginTop: 4 }}>Buy this book and be the first to review!</p>
           </div>
         )}
 
         {!reviewLoading && reviews.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {visibleReviews.map((review) => (
-              <div
-                key={review._id}
-                style={{
-                  padding: "16px",
-                  backgroundColor: "#f8fafc",
-                  borderRadius: 12,
-                  border: "1px solid #e2e8f0",
-                }}
-              >
-                <div style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  marginBottom: 10,
-                }}>
+              <div key={review._id} style={{ padding: "16px", backgroundColor: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{
-                      width: 38, height: 38, borderRadius: "50%",
-                      background: "linear-gradient(135deg, #2563eb, #7c3aed)",
-                      color: "#fff",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontWeight: 700, fontSize: "1rem", flexShrink: 0,
-                    }}>
+                    <div style={{ width: 38, height: 38, borderRadius: "50%", background: "linear-gradient(135deg, #2563eb, #7c3aed)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "1rem", flexShrink: 0 }}>
                       {review.user?.name?.charAt(0)?.toUpperCase() || "?"}
                     </div>
                     <div>
@@ -304,40 +255,21 @@ const BookDetails = () => {
             ))}
 
             {reviews.length > 3 && (
-              <button
-                onClick={() => setShowAll(!showAll)}
-                style={{
-                  padding: "10px",
-                  backgroundColor: "#fff",
-                  color: "#2563eb",
-                  border: "1.5px solid #bfdbfe",
-                  borderRadius: 10,
-                  cursor: "pointer",
-                  fontWeight: 600,
-                  fontSize: "0.9rem",
-                  marginTop: 4,
-                }}
-              >
+              <button onClick={() => setShowAll(!showAll)}
+                style={{ padding: "10px", backgroundColor: "#fff", color: "#2563eb", border: "1.5px solid #bfdbfe", borderRadius: 10, cursor: "pointer", fontWeight: 600, fontSize: "0.9rem", marginTop: 4 }}>
                 {showAll ? "▲ Show Less" : `▼ Show All ${reviews.length} Reviews`}
               </button>
             )}
           </div>
         )}
 
-        {/* ── ✅ FIXED: /library → /my-library ── */}
-        <div style={{
-          marginTop: 24, padding: "14px 18px",
-          backgroundColor: "#eff6ff",
-          borderRadius: 10, border: "1px solid #bfdbfe",
-          display: "flex", alignItems: "center", gap: 10,
-        }}>
+        {/* Notice */}
+        <div style={{ marginTop: 24, padding: "14px 18px", backgroundColor: "#eff6ff", borderRadius: 10, border: "1px solid #bfdbfe", display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: "1.2rem" }}>💡</span>
           <p style={{ margin: 0, color: "#1e40af", fontSize: "0.88rem" }}>
             <strong>Want to review this book?</strong> Purchase it first, then rate it from{" "}
-            <span
-              onClick={() => navigate("/my-library")}
-              style={{ textDecoration: "underline", cursor: "pointer", fontWeight: 600 }}
-            >
+            <span onClick={() => navigate("/my-library")}
+              style={{ textDecoration: "underline", cursor: "pointer", fontWeight: 600 }}>
               My Library
             </span>.
           </p>
