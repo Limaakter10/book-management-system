@@ -40,6 +40,7 @@ const paymentRoutes = require("./routes/paymentRoutes");
 const sslRoutes = require("./routes/sslRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
+const subscribeRoutes = require("./routes/subscribeRoutes");
 
 // use routes
 app.use("/api/books", bookRoutes);
@@ -53,6 +54,9 @@ app.use("/api/admin", require("./routes/admin"));
 app.use("/api/blogs", require("./routes/blogRoutes"));
 app.use("/api/ads", require("./routes/adRoutes"));
 app.use("/api/messages", messageRoutes);
+
+// suscrive
+app.use("/api/subscribe", subscribeRoutes);
 // invoice route
 app.use("/api/invoice", require("./routes/invoiceRoutes"));
 app.use("/api/reviews", reviewRoutes);
