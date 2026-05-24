@@ -141,31 +141,54 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* ── Categories ────────────────────────────────── */}
-          <div>
-            <h2 style={{ fontSize:15, fontWeight:700, marginBottom:14,
-                         letterSpacing:"0.04em", textTransform:"uppercase",
-                         color:"#facc15" }}>
-              Categories
-            </h2>
-            <ul style={{ listStyle:"none", padding:0, display:"flex",
-                         flexDirection:"column", gap:10 }}>
-              {[
-                "Academic Learning", "Job Skills", 
-              ].map(cat => (
-                <li key={cat} style={{
-                  color:"#cce4ec", fontSize:13, cursor:"pointer",
-                  display:"flex", alignItems:"center", gap:5,
-                  transition:"color 0.15s",
-                }}
-                onMouseEnter={e => e.currentTarget.style.color = "#facc15"}
-                onMouseLeave={e => e.currentTarget.style.color = "#cce4ec"}
-                >
-                  › {cat}
-                </li>
-              ))}
-            </ul>
-          </div>
+        {/* ── Categories ────────────────────────────────── */}
+<div>
+  <h2 style={{
+    fontSize:15,
+    fontWeight:700,
+    marginBottom:14,
+    letterSpacing:"0.04em",
+    textTransform:"uppercase",
+    color:"#facc15"
+  }}>
+    Categories
+  </h2>
+
+  <ul style={{
+    listStyle:"none",
+    padding:0,
+    display:"flex",
+    flexDirection:"column",
+    gap:10
+  }}>
+
+    {[
+      { name: "Academic Learning", slug: "academic" },
+      { name: "Job Skills",        slug: "job-skills" },
+     
+    ].map(cat => (
+      <li key={cat.slug}>
+        <Link
+          to={`/shop?category=${cat.slug}`}
+          style={{
+            color:"#cce4ec",
+            fontSize:13,
+            textDecoration:"none",
+            display:"flex",
+            alignItems:"center",
+            gap:5,
+            transition:"color 0.15s"
+          }}
+          onMouseEnter={e => e.currentTarget.style.color = "#facc15"}
+          onMouseLeave={e => e.currentTarget.style.color = "#cce4ec"}
+        >
+          › {cat.name}
+        </Link>
+      </li>
+    ))}
+
+  </ul>
+</div>
 
           {/* ── Subscribe ─────────────────────────────────── */}
           <div>
