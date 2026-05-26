@@ -330,7 +330,7 @@ export default function AdminDashboard() {
           <StatCard
             title="Total Orders" value={fmt(totalOrders)}
             Icon={HiOutlineShoppingBag} color="#7c3aed" bg="#f3f0ff"
-            sub={`${paidOrders} paid · ${failedOrders} failed`}
+           sub={`${paidOrders} paid · ${failedOrders} failed`}
           />
           <StatCard
             title="Total Revenue" value={`BDT ${fmt(totalRevenue)}`}

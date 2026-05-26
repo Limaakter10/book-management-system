@@ -136,12 +136,7 @@ const Orders = () => {
                     gridTemplateColumns:"repeat(auto-fill, minmax(160px,1fr))",
                     gap:14, marginBottom:20 }}>
 
-        {/* Total */}
-        <div style={cardStyle("#e6f2f6", "#0e5a6f")}>
-          <p style={{ fontSize:24, fontWeight:800, color:"#0e5a6f" }}>{orders.length}</p>
-          <p style={{ fontSize:11, color:"#64748b", marginTop:2 }}>Total Orders</p>
-        </div>
-
+      
         {/* Paid */}
         <div style={cardStyle("#f0fdf4", "#16a34a")}>
           <p style={{ fontSize:24, fontWeight:800, color:"#16a34a" }}>{paidOrders.length}</p>

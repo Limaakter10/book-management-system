@@ -8,7 +8,9 @@ import { HiOutlineSparkles, HiOutlineLightningBolt, HiViewGrid } from "react-ico
 import { useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 
-const BASE_URL = "https://book-management-system-ks6w.onrender.com";
+const BASE_URL = import.meta.env.DEV
+  ? "http://localhost:3000"
+  : "https://book-management-system-ks6w.onrender.com";
 
 const getDiscountPct = (discount) => {
   if (!discount && discount !== 0) return 0;
@@ -171,7 +173,7 @@ const BookCard = ({ book, onAdd, inCart, size = "lg", realRating, realTotalRevie
           </div>
         )}
 
-        {/* ✅ Price — দশমিক নেই */}
+        {/* Price */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
           <span style={{ fontSize: isLg ? 15 : 13, fontWeight: 800, color: "#0e5a6f" }}>
             {book.price === 0 ? "FREE" : `৳${finalPrice}`}
@@ -299,8 +301,16 @@ const HomeSection = () => {
   const visibleBooks = activeBooks.slice(startIndex, startIndex + 5);
   const isInCart     = id => cart.some(item => item._id === id);
 
+  // ✅ FIXED: guest user cart save করা হচ্ছে
   const handleAdd = async (book) => {
     if (!localStorage.getItem("token")) {
+      // ✅ login এর আগে localStorage এ book save করো
+      const guestCart = JSON.parse(localStorage.getItem("cart") || "[]");
+      const already   = guestCart.find(b => b._id === book._id);
+      if (!already) {
+        guestCart.push(book);
+        localStorage.setItem("cart", JSON.stringify(guestCart));
+      }
       localStorage.setItem("redirectAfterLogin", "/cart");
       navigate("/login");
       return;
@@ -309,7 +319,6 @@ const HomeSection = () => {
     navigate("/cart");
   };
 
-  // ✅ FIXED: id সহ navigate
   const handleView = (book) => {
     navigate(`/book-details/${book._id}`, { state: book });
   };
