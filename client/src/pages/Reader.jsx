@@ -232,10 +232,24 @@ export default function Reader() {
       {/* ═══════════ TOP BAR ═══════════ */}
       <div style={S.bar}>
 
-        <B onClick={()=>navigate(-1)}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-        </B>
-
+    
+        {/* ✅ Back button — blue, visible */}
+        <button
+          onClick={() => navigate(-1)}
+          style={{
+            display: "flex", alignItems: "center", gap: 6,
+            padding: "6px 14px", borderRadius: 8,
+            background: "#2563eb", color: "#fff",
+            border: "none", cursor: "pointer",
+            fontSize: 13, fontWeight: 700,
+            flexShrink: 0,
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+          Back
+        </button>
         <span style={S.ttl}>📖 Reader</span>
 
         <div style={{display:"flex",alignItems:"center",gap:4,marginLeft:"auto",flexWrap:"wrap"}}>

@@ -49,47 +49,39 @@ import { CartProvider } from "./context/CartContext";
 const PaymentFail   = () => <div style={{padding:40,textAlign:"center"}}><h1>❌ Payment Failed</h1><p>Please try again.</p></div>;
 const PaymentCancel = () => <div style={{padding:40,textAlign:"center"}}><h1>🚫 Payment Cancelled</h1></div>;
 
-// ── Router ────────────────────────────────────────────────────
 const router = createBrowserRouter([
+
+  // ✅ Reader — App এর বাইরে, Navbar/Footer নেই, fullscreen
+  { path: "/reader/:id", element: <Reader /> },
+
+  // ── বাকি সব App এর ভেতরে (Navbar + Footer সহ) ──────────────
   {
     path: "/",
     element: <App />,
     children: [
-      // Public pages
-      { path: "/",                element: <Home /> },
-      { path: "/shop",            element: <Shop /> },
-      { path: "/login",           element: <Login /> },
-      { path: "/register",        element: <Register /> },
-
-      // ✅ দুটো route — পুরনো /book/:id এবং নতুন /book-details/:id
-      // HomeSection ও Shop উভয়ই /book-details/:id তে navigate করে
-      { path: "/book/:id",        element: <BookDetails /> },
+      { path: "/",                 element: <Home /> },
+      { path: "/shop",             element: <Shop /> },
+      { path: "/login",            element: <Login /> },
+      { path: "/register",         element: <Register /> },
+      { path: "/book/:id",         element: <BookDetails /> },
       { path: "/book-details/:id", element: <BookDetails /> },
-
-      { path: "/reader/:id",      element: <Reader /> },
-      { path: "/checkout",        element: <Checkout /> },
-      { path: "/blog",            element: <Blog /> },
-      { path: "/blog/:id",        element: <BlogDetails /> },
-      { path: "/help",            element: <Help /> },
-      { path: "/contact",         element: <Contact /> },
-      { path: "/recommendation",  element: <Recommendation /> },
-      { path: "/refund-policy",   element: <RefundPolicy /> },
-      { path: "/about",           element: <About /> },
-      { path: "/my-messages",     element: <UserMessages /> },
-
-      // Payment pages
-      { path: "/payment-success", element: <PaymentSuccess /> },
-      { path: "/payment-fail",    element: <PaymentFail /> },
-      { path: "/payment-cancel",  element: <PaymentCancel /> },
-
-      // Protected pages
-      { path: "/cart",            element: <ProtectedRoute><Cart /></ProtectedRoute> },
-      { path: "/library",         element: <ProtectedRoute><MyLibrary /></ProtectedRoute> },
-      { path: "/my-library",      element: <ProtectedRoute><MyLibrary /></ProtectedRoute> },
-      { path: "/dashboard",       element: <ProtectedRoute><UserDashboard /></ProtectedRoute> },
-      { path: "/user-dashboard",  element: <ProtectedRoute><UserDashboard /></ProtectedRoute> },
-
-      // Admin pages
+      { path: "/checkout",         element: <Checkout /> },
+      { path: "/blog",             element: <Blog /> },
+      { path: "/blog/:id",         element: <BlogDetails /> },
+      { path: "/help",             element: <Help /> },
+      { path: "/contact",          element: <Contact /> },
+      { path: "/recommendation",   element: <Recommendation /> },
+      { path: "/refund-policy",    element: <RefundPolicy /> },
+      { path: "/about",            element: <About /> },
+      { path: "/my-messages",      element: <UserMessages /> },
+      { path: "/payment-success",  element: <PaymentSuccess /> },
+      { path: "/payment-fail",     element: <PaymentFail /> },
+      { path: "/payment-cancel",   element: <PaymentCancel /> },
+      { path: "/cart",             element: <ProtectedRoute><Cart /></ProtectedRoute> },
+      { path: "/library",          element: <ProtectedRoute><MyLibrary /></ProtectedRoute> },
+      { path: "/my-library",       element: <ProtectedRoute><MyLibrary /></ProtectedRoute> },
+      { path: "/dashboard",        element: <ProtectedRoute><UserDashboard /></ProtectedRoute> },
+      { path: "/user-dashboard",   element: <ProtectedRoute><UserDashboard /></ProtectedRoute> },
       {
         path: "/admin",
         element: <AdminRoute><AdminLayout /></AdminRoute>,
@@ -107,7 +99,6 @@ const router = createBrowserRouter([
   },
 ]);
 
-// ── Render ────────────────────────────────────────────────────
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AuthProvider>
